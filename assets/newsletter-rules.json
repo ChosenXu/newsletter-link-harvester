@@ -1,0 +1,13 @@
+{
+  "senders": ["example@newsletter.com"],
+  "keywords": [],
+  "sender_collection_map": {
+    "example@newsletter.com": "Example Weekly"
+  },
+  "settings": {
+    "parent_collection": "Newsletter",
+    "days_back": 7,
+    "max_emails": 20,
+    "trust_mode": false
+  }
+}

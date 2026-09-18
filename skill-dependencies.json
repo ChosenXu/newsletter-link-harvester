@@ -1,0 +1,291 @@
+{
+  "schema_version": "1",
+  "capabilities": [
+    "搜索并读取 Gmail 邮件",
+    "提取正文链接并剔除杂质",
+    "规范化与批量内去重",
+    "跨期去重",
+    "Raindrop 库内比对",
+    "创建收藏夹",
+    "批量创建书签",
+    "输出执行报告"
+  ],
+  "dependencies": [
+    {
+      "id": "gmail-mcp",
+      "type": "mcp",
+      "required": true,
+      "auth_type": "oauth",
+      "capabilities": ["搜索并读取 Gmail 邮件", "提取正文链接并剔除杂质"],
+      "checks": [
+        {
+          "id": "gmail-mcp-registered",
+          "type": "mcp",
+          "required": true,
+          "server": "gmail"
+        },
+        {
+          "id": "gmail-search-probe",
+          "type": "mcp_probe",
+          "required": true,
+          "target": "会话内用 Gmail 搜索工具搜索 1 封最近邮件"
+        },
+        {
+          "id": "gmail-auth-probe",
+          "type": "auth_probe",
+          "required": true,
+          "target": "Gmail OAuth 授权状态（会话内最小只读探测）"
+        }
+      ],
+      "setup": {
+        "official_home_url": "https://developers.google.com/workspace/gmail/api",
+        "official_docs_url": "https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server",
+        "login_url": "https://accounts.google.com/",
+        "credential_url": "https://console.cloud.google.com/apis/credentials",
+        "console_path": ["Google Cloud 控制台", "API 和服务", "库", "启用 Gmail API", "凭据", "创建凭据", "OAuth 客户端 ID"],
+        "scopes": [
+          "https://www.googleapis.com/auth/gmail.readonly",
+          "https://www.googleapis.com/auth/gmail.compose"
+        ],
+        "credential_storage": "方案 A 存本机 ~/.gmail-mcp/；方案 B 托管于 WorkBuddy 连接器，绝不写入对话、日志或仓库",
+        "steps": [
+          "接入路径二选一：方案 A 为本地 npx 服务器（推荐，已实测跑通），方案 B 为 Google 官方远程 MCP（https://gmailmcp.googleapis.com/mcp/v1，需预览计划、个人账号受限），逐步操作见 references/setup-guide.md",
+          "准备 Google Cloud 项目并启用 gmail.googleapis.com（方案 B 另需启用 gmailmcp.googleapis.com；方案 A 无需 gcloud，可在控制台启用）",
+          "配置 OAuth 权限页面：外部用户类型，加入本人 Gmail 为测试用户",
+          "方案 A 的 scope 只加 gmail.readonly；方案 B 官方服务器固定含 gmail.readonly 与 gmail.compose，本 skill 只调用读取类工具",
+          "创建 OAuth 客户端（方案 A 选桌面应用，方案 B 选 Web 应用），完成浏览器授权",
+          "方案 A 写入 ~/.workbuddy/mcp.json 的 mcpServers 后在连接器管理信任；方案 B 在 WorkBuddy 连接器管理添加自定义连接器并信任",
+          "WorkBuddy 无法完成方案 B 的 OAuth 回调时直接转方案 A，不反复重试"
+        ],
+        "verify": "会话内最小只读探测：用 Gmail 搜索工具搜索 1 封最近邮件并读取其正文",
+        "rotate_or_revoke": "Google 账号 → 安全性 → 第三方应用访问权限移除授权；Google Cloud 控制台 → 凭据可删除或重建 OAuth 客户端；方案 A 令牌过期删除 ~/.gmail-mcp/credentials.json 重新授权",
+        "security": "只申请只读所需 scope；凭据只存连接器或本机 ~/.gmail-mcp/；绝不把凭据粘贴进对话或写入仓库；方案 A 授权处于测试态约 7 天过期，过期后重跑授权命令；发布应用需品牌三件套（须自有域名），当前选择保持测试态",
+        "verified_at": "2026-09-17",
+        "applies_to_version": "方案 B 官方远程服务器为 Developer Preview（2026-09 文档，实测个人账号受预览计划闸门限制）；方案 A 为通用本地形态"
+      },
+      "degradation": [
+        {
+          "capability": "搜索并读取 Gmail 邮件",
+          "trigger": "Gmail MCP 未配置、授权失效或网络不通",
+          "fallback": "停止受影响流程，展示 setup-guide 中对应方案的全部配置或重新授权步骤",
+          "user_input": "完成授权或选择接入方案后告知助手重检",
+          "limitations": "无法筛选和读取邮件，主流程无法执行",
+          "evidence_label": "未验证",
+          "recovery": "完成授权并信任服务器后重新运行环境检查与会话内探测",
+          "stop_condition": "授权无法恢复且用户无其他接入方案时停止"
+        },
+        {
+          "capability": "提取正文链接并剔除杂质",
+          "trigger": "单封邮件正文获取失败或正文不可解析",
+          "fallback": "跳过该封邮件，在报告中记录失败原因，其余邮件继续",
+          "user_input": "",
+          "limitations": "该封邮件的链接缺失",
+          "evidence_label": "已验证",
+          "recovery": "重新运行本 skill，跨期状态不会重复保存已入库链接",
+          "stop_condition": "全部匹配邮件均失败且用户要求完整结果时停止"
+        }
+      ]
+    },
+    {
+      "id": "raindrop-connector",
+      "type": "mcp",
+      "required": true,
+      "auth_type": "token",
+      "capabilities": ["Raindrop 库内比对", "创建收藏夹", "批量创建书签"],
+      "checks": [
+        {
+          "id": "raindrop-registered",
+          "type": "mcp",
+          "required": true,
+          "server": "raindrop"
+        },
+        {
+          "id": "raindrop-list-probe",
+          "type": "mcp_probe",
+          "required": true,
+          "target": "会话内列出 Raindrop 收藏夹"
+        },
+        {
+          "id": "raindrop-auth-probe",
+          "type": "auth_probe",
+          "required": true,
+          "target": "Raindrop 令牌有效性（会话内最小只读探测）"
+        }
+      ],
+      "setup": {
+        "official_home_url": "https://raindrop.io",
+        "official_docs_url": "https://developer.raindrop.io",
+        "login_url": "https://raindrop.io",
+        "credential_url": "https://raindrop.io/integrations",
+        "console_path": ["raindrop.io", "Settings", "Integrations", "New client", "Authorization Code"],
+        "scopes": ["令牌按 Raindrop client 形态自带库读写权限，本 skill 仅调用书签与收藏夹读写"],
+        "credential_storage": "令牌托管于 WorkBuddy 连接器配置，绝不回显、不写入对话或仓库",
+        "steps": [
+          "已通过 WorkBuddy raindrop 连接器接入时无需任何操作",
+          "需要重配时登录 raindrop.io → Settings → Integrations → 新建 Authorization Code client",
+          "按 WorkBuddy 远程连接器格式填入网址 https://api.raindrop.io/rest/v2/ai/mcp 与令牌头",
+          "在 WorkBuddy 连接器管理中信任该服务器"
+        ],
+        "verify": "会话内最小只读探测：列出收藏夹，能返回即接入成功",
+        "rotate_or_revoke": "raindrop.io → Settings → Integrations 删除对应 client 即撤销；轮换=新建 client 后更新连接器令牌",
+        "security": "令牌只存连接器配置；不把令牌写入 skill 文件、报告或对话",
+        "verified_at": "2026-09-17",
+        "applies_to_version": "Raindrop REST API v2 MCP 端点（2026-09 核验）"
+      },
+      "degradation": [
+        {
+          "capability": "Raindrop 库内比对",
+          "trigger": "书签查询接口失败或超时",
+          "fallback": "有限重试 1 次后跳过库内比对，继续后续流程并在报告标注重复风险",
+          "user_input": "",
+          "limitations": "无法保证零重复入库",
+          "evidence_label": "部分验证",
+          "recovery": "服务恢复后重新运行本 skill，比对会拦住已入库部分",
+          "stop_condition": "用户要求必须保证零重复且比对不可用时停止写入"
+        },
+        {
+          "capability": "创建收藏夹",
+          "trigger": "收藏夹创建接口失败",
+          "fallback": "输出建议手工创建的收藏夹名称清单并暂停写入",
+          "user_input": "按清单手工创建后告知助手继续",
+          "limitations": "需要一次手工操作",
+          "evidence_label": "部分验证",
+          "recovery": "手工创建完成后重新运行保存环节",
+          "stop_condition": "无法确定目标收藏夹时停止写入"
+        },
+        {
+          "capability": "批量创建书签",
+          "trigger": "书签写入接口失败、超时或授权失效",
+          "fallback": "不写入。输出 Markdown 链接清单（含建议子夹名与备注文本），标注「未保存」",
+          "user_input": "恢复连接或授权后重跑本 skill",
+          "limitations": "本次未入库，清单需人工处理或等待重跑",
+          "evidence_label": "未验证",
+          "recovery": "重跑本 skill，库内比对防止重复入库",
+          "stop_condition": "保存始终失败且用户要求必须入库时停止"
+        }
+      ]
+    },
+    {
+      "id": "python-runtime",
+      "type": "runtime",
+      "required": true,
+      "auth_type": "none",
+      "capabilities": ["规范化与批量内去重"],
+      "checks": [
+        {
+          "id": "python-version",
+          "type": "python",
+          "required": true,
+          "min_version": "3.10"
+        }
+      ],
+      "setup": {
+        "official_home_url": "https://www.python.org",
+        "official_docs_url": "https://docs.python.org/3/",
+        "steps": [
+          "确认 python3 可用且版本不低于 3.10（python3 --version）",
+          "两个脚本只用 Python 标准库，无需安装第三方包"
+        ],
+        "verify": "python3 scripts/check_environment.py 输出 python-runtime PASS",
+        "rotate_or_revoke": "不适用（本地运行时，无凭据）",
+        "security": "脚本只做本地文件读写，不联网、不读取凭据",
+        "verified_at": "2026-09-17",
+        "applies_to_version": "Python 3.10 及以上"
+      },
+      "degradation": [
+        {
+          "capability": "规范化与批量内去重",
+          "trigger": "Python 低于 3.10 或脚本以非 0 退出码失败",
+          "fallback": "由助手按 dedupe_links.py 的规则人工核对（去 utm_* 与固定追踪参数、去 fragment、域名小写、批量内去重），报告标注「未完成脚本去重」",
+          "user_input": "",
+          "limitations": "人工核对可能遗漏边角案例，结果标注部分验证",
+          "evidence_label": "部分验证",
+          "recovery": "安装 Python 3.10+ 后重跑脚本",
+          "stop_condition": "无法人工核对且链接量大时输出原始清单并停止"
+        }
+      ]
+    }
+  ],
+  "functional_degradations": [
+    {
+      "capability": "搜索并读取 Gmail 邮件",
+      "trigger": "Gmail MCP 未配置、授权失效或网络不通",
+      "fallback": "停止受影响流程，展示 setup-guide 中对应方案的全部配置或重新授权步骤",
+      "user_input": "完成授权或选择接入方案后告知助手重检",
+      "limitations": "无法筛选和读取邮件，主流程无法执行",
+      "evidence_label": "未验证",
+      "recovery": "完成授权并信任服务器后重新运行环境检查与会话内探测",
+      "stop_condition": "授权无法恢复且用户无其他接入方案时停止"
+    },
+    {
+      "capability": "提取正文链接并剔除杂质",
+      "trigger": "单封邮件正文获取失败或正文不可解析",
+      "fallback": "跳过该封邮件，在报告中记录失败原因，其余邮件继续",
+      "user_input": "",
+      "limitations": "该封邮件的链接缺失",
+      "evidence_label": "已验证",
+      "recovery": "重新运行本 skill，跨期状态不会重复保存已入库链接",
+      "stop_condition": "全部匹配邮件均失败且用户要求完整结果时停止"
+    },
+    {
+      "capability": "规范化与批量内去重",
+      "trigger": "Python 低于 3.10 或 dedupe_links.py 以非 0 退出码失败",
+      "fallback": "由助手按 dedupe_links.py 的规则人工核对（去 utm_* 与固定追踪参数、去 fragment、域名小写、批量内去重），报告标注「未完成脚本去重」",
+      "user_input": "",
+      "limitations": "人工核对可能遗漏边角案例，结果标注部分验证",
+      "evidence_label": "部分验证",
+      "recovery": "安装 Python 3.10+ 后重跑脚本",
+      "stop_condition": "无法人工核对且链接量大时输出原始清单并停止"
+    },
+    {
+      "capability": "跨期去重",
+      "trigger": "状态文件 ~/.config/newsletter-link-harvester/state.json 不可写、损坏，或条目治理（裁剪）失败",
+      "fallback": "跳过状态写入或裁剪，继续保存，报告标注「跨期去重记录未写入」",
+      "user_input": "",
+      "limitations": "同一封邮件可能被再次处理，重复风险由库内比对兜底",
+      "evidence_label": "已验证",
+      "recovery": "修复目录权限后重跑，库内比对拦住已入库链接",
+      "stop_condition": "不停止流程，仅标注风险"
+    },
+    {
+      "capability": "Raindrop 库内比对",
+      "trigger": "书签查询接口失败或超时",
+      "fallback": "有限重试 1 次后跳过库内比对，继续后续流程并在报告标注重复风险",
+      "user_input": "",
+      "limitations": "无法保证零重复入库",
+      "evidence_label": "部分验证",
+      "recovery": "服务恢复后重新运行本 skill，比对会拦住已入库部分",
+      "stop_condition": "用户要求必须保证零重复且比对不可用时停止写入"
+    },
+    {
+      "capability": "创建收藏夹",
+      "trigger": "收藏夹创建接口失败",
+      "fallback": "输出建议手工创建的收藏夹名称清单并暂停写入",
+      "user_input": "按清单手工创建后告知助手继续",
+      "limitations": "需要一次手工操作",
+      "evidence_label": "部分验证",
+      "recovery": "手工创建完成后重新运行保存环节",
+      "stop_condition": "无法确定目标收藏夹时停止写入"
+    },
+    {
+      "capability": "批量创建书签",
+      "trigger": "书签写入接口失败、超时或授权失效",
+      "fallback": "不写入。输出 Markdown 链接清单（含建议子夹名与备注文本），标注「未保存」",
+      "user_input": "恢复连接或授权后重跑本 skill",
+      "limitations": "本次未入库，清单需人工处理或等待重跑",
+      "evidence_label": "未验证",
+      "recovery": "重跑本 skill，库内比对防止重复入库",
+      "stop_condition": "保存始终失败且用户要求必须入库时停止"
+    },
+    {
+      "capability": "输出执行报告",
+      "trigger": "某环节降级导致统计数字不完整",
+      "fallback": "报告只列已完成步骤与未验证项，明确标注「未验证」或「未保存」，不编造数字",
+      "user_input": "",
+      "limitations": "报告完整性受限",
+      "evidence_label": "已验证",
+      "recovery": "条件恢复后重跑获得完整报告",
+      "stop_condition": "不停止流程，报告始终可输出"
+    }
+  ]
+}
