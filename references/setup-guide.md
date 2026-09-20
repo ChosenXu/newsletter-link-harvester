@@ -71,3 +71,12 @@
 
 - 依赖 id：python-runtime。两个脚本只用 Python 标准库，要求 Python 3.10 及以上（[官方主页](https://www.python.org)，[文档](https://docs.python.org/3/)）。验证命令：`python3 --version` 与 `python3 scripts/check_environment.py`。
 - 跨期去重状态文件位于 `~/.config/newsletter-link-harvester/state.json`，记录已处理邮件的 ID、日期与发件人，不含任何凭据；`scripts/prune_state.py` 会自动裁剪超过 180 天或超出 500 条上限的旧条目（被裁剪条目的重复风险由库内比对兜底）。目录不可写时 skill 会降级运行并在报告中标注。
+
+## TypeSafe Jev 预分类（可选增强）
+
+- 依赖 id：typesafe-jev。这是**可选**能力：未配置时 skill 行为与未集成版本完全一致，无需任何操作。作用是在预览阶段自动标注「明确推广（建议剔除）」与「明确内容」，减少人工逐条甄别负担；标注只影响预览，确认闸口不变。
+- 接入：登录 [console.typesafe.ai](https://console.typesafe.ai)，在 [Keys](https://console.typesafe.ai/keys) 页创建 API key，把 key 存入本机——环境变量 `TYPESAFE_API_KEY` 或文件 `~/.typesafe-api-key`（首行为 key，权限 600）。
+- 验证：`python3 scripts/classify_entries.py --links <任一链接JSON>` 输出 `classified N/M` 且条目带 `jev` 字段即接入成功；无 key 时脚本以退出码 3 静默跳过，报告标注「Jev 预分类：关闭」。
+- 判定说明：两个 Noul 问题（推广识别 / 锚文本质量）已于 2026-09-20 在真实中文条目上校准（14/14 正确，自一致性满分）：noul ≥0.9 标「明确推广」，≤0.3 标「明确内容」，中间地带交人工确认。
+- 安全：key 只存本机，脚本绝不回显；发送给 Jev 的只有条目的标题、网址与介绍文本；官方声明客户请求不用于训练（[官方文档](https://docs.typesafe.ai/introduction)，[官网](https://www.typesafe.ai)）。
+- 撤销/轮换：[console.typesafe.ai](https://console.typesafe.ai) → Keys 删除或重建 key，然后更新本机存储即可。

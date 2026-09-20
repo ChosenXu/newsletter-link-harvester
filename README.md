@@ -21,6 +21,7 @@ You read a design/tech newsletter once a week; the good links die inside your ma
 3. **Safety first** — Gmail access is requested read-only (`gmail.readonly` only: search + read, never send/delete/modify — verified against the live tool list); nothing is written without a confirmed preview; emails are never touched.
 4. **Faithful notes** — the `via:` line format never changes; the second line is the author's own words. Where two links share one sentence in the original, both bookmarks faithfully carry it.
 5. **Trust mode (optional)** — for already-mapped senders, the per-link preview can shrink to a short summary; the confirmation gate before any write is never removed.
+6. **Optional Jev pre-classification** — with a TypeSafe API key configured locally, entries are pre-classified before the preview ("clear promotional" / "clear content" Noul judgments, calibrated on real Chinese newsletter entries); without a key the skill behaves identically. Annotations only inform the preview — the confirmation gate is never bypassed.
 
 ## Install
 
@@ -87,6 +88,7 @@ references/setup-guide.en.md    # setup guide, English
 scripts/check_environment.py    # read-only readiness check (multi-config scan)
 scripts/dedupe_links.py         # normalization + in-batch dedup
 scripts/extract_context.py      # per-link editorial context (Markdown & plain-text modes)
+scripts/classify_entries.py     # optional Jev pre-classification (soft dependency)
 scripts/fetch_library.py        # zero-context full-library export (token chain)
 scripts/check_library.py        # offline library compare (kept/links input)
 scripts/prune_state.py          # cross-run state housekeeping (age/cap/dry-run)

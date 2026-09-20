@@ -71,3 +71,12 @@ Dependency id reference: gmail-mcp (Gmail access, Options A/B in this file), rai
 
 - Dependency id: python-runtime. Both scripts use only the Python standard library and require Python 3.10 or newer ([official home](https://www.python.org), [docs](https://docs.python.org/3/)). Verify with: `python3 --version` and `python3 scripts/check_environment.py`.
 - The cross-run dedup state file lives at `~/.config/newsletter-link-harvester/state.json`, recording processed email IDs, dates and senders, with no credentials; `scripts/prune_state.py` automatically prunes entries older than 180 days or beyond the 500-entry cap (duplicate risk for pruned entries is backstopped by the library lookup). If the directory is not writable, the skill degrades gracefully and flags it in the report.
+
+## TypeSafe Jev pre-classification (optional enhancement)
+
+- Dependency id: typesafe-jev. This is an **optional** capability: without configuration the skill behaves exactly like the pre-integration version — nothing to do. It annotates preview entries as "clear promotional (suggest excluding)" vs "clear content" to reduce manual triage; annotations only affect the preview, the confirmation gate is unchanged.
+- Setup: sign in at [console.typesafe.ai](https://console.typesafe.ai), create an API key on the [Keys](https://console.typesafe.ai/keys) page, and store it locally — the `TYPESAFE_API_KEY` env var or a `~/.typesafe-api-key` file (key on the first line, chmod 600).
+- Verify: `python3 scripts/classify_entries.py --links <any links JSON>` prints `classified N/M` and adds a `jev` field per entry. Without a key the script exits with code 3 and the report notes "Jev pre-classification: off".
+- Calibration: the two Noul questions (promotional detection / anchor-text quality) were calibrated on 2026-09-20 with real Chinese newsletter entries (14/14 correct, perfect self-consistency): noul >= 0.9 marks "clear promotional", <= 0.3 "clear content"; in-between goes to human review.
+- Security: the key stays on this machine and is never echoed by the script; only each entry's title, URL and introduction text are sent to Jev; TypeSafe states customer requests are not used for training ([docs](https://docs.typesafe.ai/introduction), [site](https://www.typesafe.ai)).
+- Rotate/revoke: [console.typesafe.ai](https://console.typesafe.ai) → Keys, delete or recreate the key, then update the local storage.

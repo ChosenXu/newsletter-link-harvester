@@ -8,7 +8,8 @@
     "Raindrop 库内比对",
     "创建收藏夹",
     "批量创建书签",
-    "输出执行报告"
+    "输出执行报告",
+    "推广条目预分类（可选增强）"
   ],
   "dependencies": [
     {
@@ -16,7 +17,10 @@
       "type": "mcp",
       "required": true,
       "auth_type": "oauth",
-      "capabilities": ["搜索并读取 Gmail 邮件", "提取正文链接并剔除杂质"],
+      "capabilities": [
+        "搜索并读取 Gmail 邮件",
+        "提取正文链接并剔除杂质"
+      ],
       "checks": [
         {
           "id": "gmail-mcp-registered",
@@ -42,7 +46,15 @@
         "official_docs_url": "https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server",
         "login_url": "https://accounts.google.com/",
         "credential_url": "https://console.cloud.google.com/apis/credentials",
-        "console_path": ["Google Cloud 控制台", "API 和服务", "库", "启用 Gmail API", "凭据", "创建凭据", "OAuth 客户端 ID"],
+        "console_path": [
+          "Google Cloud 控制台",
+          "API 和服务",
+          "库",
+          "启用 Gmail API",
+          "凭据",
+          "创建凭据",
+          "OAuth 客户端 ID"
+        ],
         "scopes": [
           "https://www.googleapis.com/auth/gmail.readonly",
           "https://www.googleapis.com/auth/gmail.compose"
@@ -91,7 +103,11 @@
       "type": "mcp",
       "required": true,
       "auth_type": "token",
-      "capabilities": ["Raindrop 库内比对", "创建收藏夹", "批量创建书签"],
+      "capabilities": [
+        "Raindrop 库内比对",
+        "创建收藏夹",
+        "批量创建书签"
+      ],
       "checks": [
         {
           "id": "raindrop-registered",
@@ -117,8 +133,16 @@
         "official_docs_url": "https://developer.raindrop.io",
         "login_url": "https://raindrop.io",
         "credential_url": "https://raindrop.io/integrations",
-        "console_path": ["raindrop.io", "Settings", "Integrations", "New client", "Authorization Code"],
-        "scopes": ["令牌按 Raindrop client 形态自带库读写权限，本 skill 仅调用书签与收藏夹读写"],
+        "console_path": [
+          "raindrop.io",
+          "Settings",
+          "Integrations",
+          "New client",
+          "Authorization Code"
+        ],
+        "scopes": [
+          "令牌按 Raindrop client 形态自带库读写权限，本 skill 仅调用书签与收藏夹读写"
+        ],
         "credential_storage": "令牌托管于 WorkBuddy 连接器配置，绝不回显、不写入对话或仓库",
         "steps": [
           "已通过 WorkBuddy raindrop 连接器接入时无需任何操作",
@@ -170,7 +194,9 @@
       "type": "runtime",
       "required": true,
       "auth_type": "none",
-      "capabilities": ["规范化与批量内去重"],
+      "capabilities": [
+        "规范化与批量内去重"
+      ],
       "checks": [
         {
           "id": "python-version",
@@ -202,6 +228,68 @@
           "evidence_label": "部分验证",
           "recovery": "安装 Python 3.10+ 后重跑脚本",
           "stop_condition": "无法人工核对且链接量大时输出原始清单并停止"
+        }
+      ]
+    },
+    {
+      "id": "typesafe-jev",
+      "type": "api",
+      "required": false,
+      "auth_type": "api-key",
+      "capabilities": [
+        "推广条目预分类（可选增强）"
+      ],
+      "checks": [
+        {
+          "id": "typesafe-url-health",
+          "type": "url",
+          "required": false,
+          "url": "https://api.typesafe.ai/v1/models",
+          "expected_status": 401
+        },
+        {
+          "id": "typesafe-auth-probe",
+          "type": "auth_probe",
+          "required": true,
+          "target": "用已配置的 TypeSafe API key 调用 GET /v1/models，返回 200 即令牌有效"
+        }
+      ],
+      "setup": {
+        "official_home_url": "https://www.typesafe.ai",
+        "official_docs_url": "https://docs.typesafe.ai/introduction",
+        "login_url": "https://console.typesafe.ai",
+        "credential_url": "https://console.typesafe.ai/keys",
+        "console_path": [
+          "console.typesafe.ai",
+          "Keys",
+          "Create API key"
+        ],
+        "scopes": [
+          "https://docs.typesafe.ai/models（Jev API 无 scope 机制，此字段按清单格式要求指向模型文档）"
+        ],
+        "credential_storage": "key 存本机：环境变量 TYPESAFE_API_KEY 或文件 ~/.typesafe-api-key（权限 600）；绝不打印、不写入对话、日志或仓库",
+        "steps": [
+          "这是可选增强：未配置时 skill 行为与未集成版本完全一致，无需任何操作",
+          "登录 console.typesafe.ai，在 Keys 页创建 API key",
+          "把 key 存入本机：写入环境变量 TYPESAFE_API_KEY，或保存为 ~/.typesafe-api-key 首行（chmod 600）",
+          "验证：python3 scripts/classify_entries.py --links <任一链接JSON> 有分类输出即接入成功；无 key 时脚本以退出码 3 静默跳过"
+        ],
+        "verify": "带 key 运行 classify_entries.py，输出 classified N/M 且条目带 jev 字段",
+        "rotate_or_revoke": "console.typesafe.ai → Keys 删除或重建 key；轮换后更新本机存储即可",
+        "security": "key 只存本机环境变量或 ~/.typesafe-api-key；脚本绝不回显 key；Jev 侧官方声明不训练客户请求；只发送待分类条目的标题/网址/介绍文本",
+        "verified_at": "2026-09-20",
+        "applies_to_version": "jev-latest（= jev-1.13.0，2026-09-20 实测）；限流动态调整中，脚本内置一次重试"
+      },
+      "degradation": [
+        {
+          "capability": "推广条目预分类（可选增强）",
+          "trigger": "未配置 TypeSafe key（退出码 3）或 Jev 服务不可达（退出码 1）",
+          "fallback": "静默跳过预分类，预览与保存流程与未集成版本完全一致，报告标注「Jev 预分类：关闭/不可用」",
+          "user_input": "想启用时配置 key 后告知助手重跑",
+          "limitations": "失去预分类标注，推广条目仍由预览阶段人工判断拦截",
+          "evidence_label": "已验证",
+          "recovery": "配置 key 或服务恢复后重跑，无需回滚任何已保存数据",
+          "stop_condition": "不停止流程——这是可选增强，永不阻塞主流程"
         }
       ]
     }
@@ -286,6 +374,16 @@
       "evidence_label": "已验证",
       "recovery": "条件恢复后重跑获得完整报告",
       "stop_condition": "不停止流程，报告始终可输出"
+    },
+    {
+      "capability": "推广条目预分类（可选增强）",
+      "trigger": "未配置 TypeSafe key（退出码 3）或 Jev 服务不可达（退出码 1）",
+      "fallback": "静默跳过预分类，预览与保存流程与未集成版本完全一致，报告标注「Jev 预分类：关闭/不可用」",
+      "user_input": "想启用时配置 key 后告知助手重跑",
+      "limitations": "失去预分类标注，推广条目仍由预览阶段人工判断拦截",
+      "evidence_label": "已验证",
+      "recovery": "配置 key 或服务恢复后重跑，无需回滚任何已保存数据",
+      "stop_condition": "不停止流程——这是可选增强，永不阻塞主流程"
     }
   ]
 }

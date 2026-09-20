@@ -21,6 +21,7 @@
 3. **安全优先** —— Gmail 仅申请只读权限（`gmail.readonly`：只搜索、只读取，绝不发送/删除/修改——已对真实工具清单核验）；未经确认的预览不写任何数据；邮件原封不动。
 4. **备注忠实** —— `via:` 行格式固定不变；第二行是作者原话。原文把两个链接写进同一句话时，两条书签如实共享该介绍。
 5. **信任模式（可选）** —— 对已映射的老发件人，逐条预览可降为简短摘要；任何写入前的确认闸口永不移除。
+6. **Jev 预分类（可选）** —— 本机配置 TypeSafe API key 后，预览前自动标注「明确推广 / 明确内容」（Noul 判断，已在真实中文条目上校准）；未配置 key 时行为与无此功能完全一致。标注只影响预览——确认闸口绝不被绕过。
 
 ## 安装
 
@@ -87,6 +88,7 @@ references/setup-guide.en.md    # 配置指南（英文）
 scripts/check_environment.py    # 只读就绪检查（多配置扫描）
 scripts/dedupe_links.py         # 归一化 + 批量内去重
 scripts/extract_context.py      # 逐链接编辑语境（Markdown 与纯文本双模式）
+scripts/classify_entries.py     # 可选 Jev 预分类（软依赖）
 scripts/fetch_library.py        # 零上下文全库导出（令牌解析链）
 scripts/check_library.py        # 离线库内比对（接受 kept/links 两种输入）
 scripts/prune_state.py          # 跨期状态治理（按龄/上限/干跑）
