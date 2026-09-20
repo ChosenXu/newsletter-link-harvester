@@ -6,6 +6,22 @@ All notable changes to this skill are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 格式参考 Keep a Changelog，版本号遵循语义化版本（SemVer）。
 
+## [1.1.0] - 2026-09-20
+
+### Added / 新增
+
+- Optional Jev pre-classification (`scripts/classify_entries.py`): when a TypeSafe API key is configured (`TYPESAFE_API_KEY` env var or `~/.typesafe-api-key`), entries are pre-classified before the preview with two Noul judgments — "is this promotional" and "is the anchor text a usable title" (noul >= 0.9 marks "clear promotional, suggest excluding", <= 0.3 marks "clear content", in-between goes to human review). Calibrated on 2026-09-20 with real Chinese newsletter entries: 14/14 correct, perfect self-consistency (deviation <= 0.04).
+  可选 Jev 预分类（`scripts/classify_entries.py`）：配置 TypeSafe API key（环境变量 `TYPESAFE_API_KEY` 或文件 `~/.typesafe-api-key`）后，预览前对每条条目做两个 Noul 判断——「是否推广」与「锚文本是否可作标题」（noul ≥0.9 标「明确推广，建议剔除」，≤0.3 标「明确内容」，中间地带交人工确认）。2026-09-20 以真实中文条目校准：14/14 正确，自一致性满分（极差 ≤0.04）。
+- Soft-dependency design: without a key the script exits with code 3 and the skill behaves exactly like 1.0.0; a service outage skips annotations and keeps the full flow. The confirmation gate is never affected by annotations.
+  软依赖设计：无 key 时脚本以退出码 3 结束，skill 行为与 1.0.0 完全一致；服务故障时跳过标注、主流程不受影响。标注永不影响确认闸口。
+- Dependency manifest and bilingual setup guide updated with the optional `typesafe-jev` dependency (API key acquisition, storage, verification, rotation).
+- 依赖清单与中英配置指南新增可选依赖 `typesafe-jev`（API key 获取、存储、验证与轮换说明）。
+
+### Notes / 说明
+
+- Version bumped 1.0.0 → 1.1.0 (MINOR: new compatible capability). Jev is an optional, env-gated dependency — the default workflow is unchanged without configuration.
+- 版本 1.0.0 → 1.1.0（MINOR：新增兼容能力）。Jev 为可选、按环境变量启用的依赖——未配置时默认工作流不变。
+
 ## [1.0.0] - 2026-09-18
 
 First release. Battle-tested end-to-end on a real library (two newsletter platforms, six real issues, 205 links saved, zero failed writes, zero email mutations).
@@ -51,22 +67,6 @@ First release. Battle-tested end-to-end on a real library (two newsletter platfo
   中转还原需要网络；两次失败后原样保存包装网址并在报告中标注。
 - Where an author places two links in one sentence, both bookmarks share that sentence as context.
   作者把两个链接写进同一句话时，两条书签共享该句介绍。
-
-## [1.1.0] - 2026-09-20
-
-### Added / 新增
-
-- Optional Jev pre-classification (`scripts/classify_entries.py`): when a TypeSafe API key is configured (`TYPESAFE_API_KEY` env var or `~/.typesafe-api-key`), entries are pre-classified before the preview with two Noul judgments — "is this promotional" and "is the anchor text a usable title" (noul >= 0.9 marks "clear promotional, suggest excluding", <= 0.3 marks "clear content", in-between goes to human review). Calibrated on 2026-09-20 with real Chinese newsletter entries: 14/14 correct, perfect self-consistency (deviation <= 0.04).
-  可选 Jev 预分类（`scripts/classify_entries.py`）：配置 TypeSafe API key（环境变量 `TYPESAFE_API_KEY` 或文件 `~/.typesafe-api-key`）后，预览前对每条条目做两个 Noul 判断——「是否推广」与「锚文本是否可作标题」（noul ≥0.9 标「明确推广，建议剔除」，≤0.3 标「明确内容」，中间地带交人工确认）。2026-09-20 以真实中文条目校准：14/14 正确，自一致性满分（极差 ≤0.04）。
-- Soft-dependency design: without a key the script exits with code 3 and the skill behaves exactly like 1.0.0; a service outage skips annotations and keeps the full flow. The confirmation gate is never affected by annotations.
-  软依赖设计：无 key 时脚本以退出码 3 结束，skill 行为与 1.0.0 完全一致；服务故障时跳过标注、主流程不受影响。标注永不影响确认闸口。
-- Dependency manifest and bilingual setup guide updated with the optional `typesafe-jev` dependency (API key acquisition, storage, verification, rotation).
-- 依赖清单与中英配置指南新增可选依赖 `typesafe-jev`（API key 获取、存储、验证与轮换说明）。
-
-### Notes / 说明
-
-- Version bumped 1.0.0 → 1.1.0 (MINOR: new compatible capability). Jev is an optional, env-gated dependency — the default workflow is unchanged without configuration.
-- 版本 1.0.0 → 1.1.0（MINOR：新增兼容能力）。Jev 为可选、按环境变量启用的依赖——未配置时默认工作流不变。
 
 ## [Unreleased]
 
