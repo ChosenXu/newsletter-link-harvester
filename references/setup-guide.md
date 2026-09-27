@@ -75,6 +75,7 @@
 ## TypeSafe Jev 预分类（可选增强）
 
 - 依赖 id：typesafe-jev。这是**可选**能力：未配置时 skill 行为与未集成版本完全一致，无需任何操作。作用是在预览阶段自动标注「明确推广（建议剔除）」与「明确内容」，减少人工逐条甄别负担；标注只影响预览，确认闸口不变。
+- 启用开关：除配置 key 外，还须在规则文件 `assets/newsletter-rules.json` 中把 `settings.jev_enabled` 设为 `true`（默认 `false`）——因为该步骤会把邮件衍生的条目文本发送至 TypeSafe API，「配置了 key」与「本次运行允许使用」是两个独立决定。运行时只分类尚未入库（status=new）的条目，请求并发执行且默认上限 100 条。
 - 接入：登录 [console.typesafe.ai](https://console.typesafe.ai)，在 [Keys](https://console.typesafe.ai/keys) 页创建 API key，把 key 存入本机——环境变量 `TYPESAFE_API_KEY` 或文件 `~/.typesafe-api-key`（首行为 key，权限 600）。
 - 验证：`python3 scripts/classify_entries.py --links <任一链接JSON>` 输出 `classified N/M` 且条目带 `jev` 字段即接入成功；无 key 时脚本以退出码 3 静默跳过，报告标注「Jev 预分类：关闭」。
 - 判定说明：两个 Noul 问题（推广识别 / 锚文本质量）已于 2026-09-20 在真实中文条目上校准（14/14 正确，自一致性满分）：noul ≥0.9 标「明确推广」，≤0.3 标「明确内容」，中间地带交人工确认。

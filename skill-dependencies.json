@@ -283,9 +283,9 @@
       "degradation": [
         {
           "capability": "推广条目预分类（可选增强）",
-          "trigger": "未配置 TypeSafe key（退出码 3）或 Jev 服务不可达（退出码 1）",
+          "trigger": "规则文件未启用（settings.jev_enabled 为 false）、未配置 TypeSafe key（退出码 3）或 Jev 服务不可达（退出码 1）",
           "fallback": "静默跳过预分类，预览与保存流程与未集成版本完全一致，报告标注「Jev 预分类：关闭/不可用」",
-          "user_input": "想启用时配置 key 后告知助手重跑",
+          "user_input": "想启用时在规则文件开启 jev_enabled、配置 key 后告知助手重跑",
           "limitations": "失去预分类标注，推广条目仍由预览阶段人工判断拦截",
           "evidence_label": "已验证",
           "recovery": "配置 key 或服务恢复后重跑，无需回滚任何已保存数据",
@@ -377,9 +377,9 @@
     },
     {
       "capability": "推广条目预分类（可选增强）",
-      "trigger": "未配置 TypeSafe key（退出码 3）或 Jev 服务不可达（退出码 1）",
+      "trigger": "规则文件未启用（settings.jev_enabled 为 false）、未配置 TypeSafe key（退出码 3）或 Jev 服务不可达（退出码 1）",
       "fallback": "静默跳过预分类，预览与保存流程与未集成版本完全一致，报告标注「Jev 预分类：关闭/不可用」",
-      "user_input": "想启用时配置 key 后告知助手重跑",
+      "user_input": "想启用时在规则文件开启 jev_enabled、配置 key 后告知助手重跑",
       "limitations": "失去预分类标注，推广条目仍由预览阶段人工判断拦截",
       "evidence_label": "已验证",
       "recovery": "配置 key 或服务恢复后重跑，无需回滚任何已保存数据",

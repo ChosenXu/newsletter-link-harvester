@@ -7,7 +7,7 @@ annotations for the preview stage only and never affect the confirmation
 gate. No key is ever printed or logged.
 
 For every entry it asks two Noul questions over one state (title, url,
-introduction) in a single request, evaluated in parallel by the API:
+introduction) in a single request:
 
   is_promotional   — the entry promotes the newsletter's own products or
                      channels (Telegram, social media, subscription nudges)
@@ -25,7 +25,19 @@ Token resolution (first hit wins):
   1. TYPESAFE_API_KEY environment variable
   2. ~/.typesafe-api-key (first line is the key)
 
-Input shape:  {"links": [{"anchor_text"|"title", "url", "context"|"intro", ...}]}
+Input shapes:
+  {"links": [...]} or {"kept": [...]}    raw link lists
+  {"results": [...]}                    check_library.py output — requires
+                                        --only-new; entries whose status is
+                                        not "new" are skipped, because they
+                                        will never be saved and classifying
+                                        them would waste API calls
+
+Requests run in a small thread pool (4 workers, ~0.1s pacing per worker), so
+a large batch finishes in a fraction of the old sequential time.
+--max-entries (default 100) caps how many entries are classified; capped
+entries keep null annotations and are counted in stats as skipped_by_cap.
+
 Output shape: same entries; each gains "jev": {"is_promotional": float|null,
 "meaningful_title": float|null} plus "stats" describing coverage.
 
@@ -41,10 +53,13 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 API = "https://api.typesafe.ai/v1/systemone"
 KEY_FILE = os.path.expanduser("~/.typesafe-api-key")
 REQUEST_TIMEOUT = 30
+MAX_WORKERS = 4
+DEFAULT_MAX_ENTRIES = 100
 
 QUESTIONS = {
     "is_promotional": {
@@ -103,28 +118,70 @@ def call(state: str, key: str) -> dict:
     raise RuntimeError("Jev call failed after retry: " + type(last_error).__name__)
 
 
+def _entry_state(entry: dict) -> str:
+    title = (entry.get("anchor_text") or entry.get("title") or "").strip()
+    url = (entry.get("url") or "").strip()
+    intro = (entry.get("context") or entry.get("intro") or "").strip()
+    return json.dumps({"title": title, "url": url, "introduction": intro},
+                      ensure_ascii=False)
+
+
+def _classify(entry: dict, key: str):
+    """Return (jev, failed_flag); failures are reported, never raised."""
+    try:
+        jev = call(_entry_state(entry), key)
+    except RuntimeError:
+        return {"is_promotional": None, "meaningful_title": None}, True
+    time.sleep(0.1)  # pacing per worker
+    return jev, False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Optional Jev pre-classification of newsletter entries (soft dependency)"
     )
     parser.add_argument("--links", required=True,
-                        help="links JSON (deduped/checked output; keys anchor_text|title, url, context|intro)")
+                        help="links JSON (links/kept list, or check_library.py results with --only-new)")
+    parser.add_argument("--only-new", action="store_true",
+                        help="read check_library.py output and classify only status=new entries")
+    parser.add_argument("--max-entries", type=int, default=DEFAULT_MAX_ENTRIES,
+                        help="classify at most this many entries (default 100); "
+                             "the rest keep null annotations")
     parser.add_argument("--output", help="write annotated JSON here; omit to print to stdout")
     parser.add_argument("--key-file", help="custom key file (first line is the key)")
     args = parser.parse_args()
 
     try:
-        links_data = json.load(open(args.links, encoding="utf-8"))
+        with open(args.links, encoding="utf-8") as fh:
+            links_data = json.load(fh)
     except OSError as exc:
         print("cannot read links file: " + type(exc).__name__, file=sys.stderr)
         return 2
     except ValueError:
         print("links file is not valid JSON", file=sys.stderr)
         return 2
-    links = links_data.get("links", links_data.get("kept")) \
-        if isinstance(links_data, dict) else links_data
+
+    if isinstance(links_data, dict):
+        if args.only_new:
+            raw = links_data.get("results")
+            if not isinstance(raw, list):
+                print("--only-new needs a check_library.py output (results array)",
+                      file=sys.stderr)
+                return 2
+            links = [r for r in raw if isinstance(r, dict) and r.get("status") == "new"]
+        else:
+            links = links_data.get("links", links_data.get("kept"))
+    elif isinstance(links_data, list):
+        if args.only_new:
+            print("--only-new needs a check_library.py output (results array)", file=sys.stderr)
+            return 2
+        links = links_data
+    else:
+        links = None
     if not isinstance(links, list):
-        print("links must be a list or contain links/kept", file=sys.stderr)
+        print("links must be a list or contain links/kept"
+              + (" (or a results array with status fields)" if args.only_new else ""),
+              file=sys.stderr)
         return 2
 
     try:
@@ -133,28 +190,32 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 3  # expected soft skip: enhancement off, flow unchanged
 
+    entries = [e for e in links if isinstance(e, dict)]
+    classifiable = [e for e in entries if (e.get("url") or "").strip()]
+    cap = max(0, args.max_entries)
+    to_classify = classifiable[:cap]
+    skipped_cap = len(classifiable) - len(to_classify)
+
     classified = failed = 0
-    for entry in links:
-        if not isinstance(entry, dict):
-            continue
-        title = (entry.get("anchor_text") or entry.get("title") or "").strip()
-        url = (entry.get("url") or "").strip()
-        intro = (entry.get("context") or entry.get("intro") or "").strip()
-        if not url:
+    if to_classify:
+        workers = min(MAX_WORKERS, len(to_classify))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for entry, (jev, failed_flag) in zip(
+                to_classify,
+                pool.map(lambda e: _classify(e, key), to_classify),
+            ):
+                entry["jev"] = jev
+                if failed_flag:
+                    failed += 1
+                else:
+                    classified += 1
+    for entry in entries:
+        if "jev" not in entry:
             entry["jev"] = {"is_promotional": None, "meaningful_title": None}
-            continue
-        state = json.dumps({"title": title, "url": url, "introduction": intro},
-                           ensure_ascii=False)
-        try:
-            entry["jev"] = call(state, key)
-            classified += 1
-        except RuntimeError:
-            entry["jev"] = {"is_promotional": None, "meaningful_title": None}
-            failed += 1
-        time.sleep(0.1)
 
     result = {"links": links, "stats": {
         "total": len(links), "classified": classified, "failed": failed,
+        "skipped_by_cap": skipped_cap,
         "note": "noul >= 0.9 clear promotional; <= 0.3 clear content; "
                 "between -> human review. Annotations only; confirmation gate unchanged.",
     }}
@@ -164,14 +225,15 @@ def main() -> int:
             with open(args.output, "w", encoding="utf-8") as fh:
                 fh.write(text + "\n")
         except OSError as exc:
-            print("cannot write output: " + type(exc).__name__, file=sys.stderr)
+            print("cannot write output file: " + type(exc).__name__, file=sys.stderr)
             return 2
     else:
         print(text)
     if failed and not classified:
         print("all Jev calls failed; entries left unclassified", file=sys.stderr)
         return 1
-    print(f"classified {classified}/{len(links)} ({failed} failed) — annotations only",
+    print(f"classified {classified}/{len(links)} ({failed} failed, "
+          f"{skipped_cap} skipped by cap) — annotations only",
           file=sys.stderr)
     return 0
 

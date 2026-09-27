@@ -29,20 +29,21 @@ Output shape matches check_library.py's expectation:
 Only the fields needed for comparison are kept.
 
 Options:
-  --output PATH   destination file (default: <system tmpdir>/raindrop-library.json)
+  --output PATH   destination file (default: ~/.config/newsletter-link-harvester/
+                 library.json; the directory is created 0700 and the file is
+                 written 0600, so other local users cannot read the library)
   --timeout SECS  per-request timeout (default 30)
   --limit         bookmarks per page, 1-150 (default 150)
 
 Exit codes: 0 ok; 2 config/usage problem (token not found, bad JSON in the
-config, unusable output path); 1 network/HTTP/tool failure — each page is
-retried once before giving up.
+config, unusable output path or directory); 1 network/HTTP/tool failure —
+each page is retried once before giving up.
 """
 
 import argparse
 import json
 import os
 import sys
-import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -56,6 +57,10 @@ CONFIG_CANDIDATES = (
     "./.mcp.json",
 )
 REQUEST_ID = 900
+STATE_DIR = os.path.join(
+    os.path.expanduser("~"), ".config", "newsletter-link-harvester"
+)
+DEFAULT_OUTPUT = os.path.join(STATE_DIR, "library.json")
 
 
 class ConfigError(Exception):
@@ -149,7 +154,12 @@ def call_gateway(token: str, arguments: dict, timeout: int) -> dict:
             if result.get("isError"):
                 raise RuntimeError("tool error: "
                                    + str(result.get("content", ""))[:120])
-            return json.loads(result["content"][0]["text"])
+            content = result.get("content") or []
+            text = (content[0].get("text")
+                    if content and isinstance(content[0], dict) else None)
+            if not isinstance(text, str) or not text:
+                raise RuntimeError("gateway response missing content text")
+            return json.loads(text)
         except (urllib.error.URLError, urllib.error.HTTPError,
                 ValueError, OSError, RuntimeError, KeyError,
                 json.JSONDecodeError) as exc:
@@ -172,9 +182,7 @@ def main() -> int:
     if not 1 <= args.limit <= 150:
         print("limit must be 1-150", file=sys.stderr)
         return 2
-    output_path = args.output or os.path.join(
-        tempfile.gettempdir(), "raindrop-library.json"
-    )
+    output_path = args.output or DEFAULT_OUTPUT
 
     try:
         token = load_token(args.token_file)
@@ -210,8 +218,18 @@ def main() -> int:
             break
         page += 1
 
+    out_dir = os.path.dirname(output_path) or "."
     try:
-        with open(output_path, "w", encoding="utf-8") as fh:
+        os.makedirs(out_dir, mode=0o700, exist_ok=True)
+        os.chmod(out_dir, 0o700)  # tighten a pre-existing directory
+    except OSError as exc:
+        print("cannot create output directory: " + type(exc).__name__, file=sys.stderr)
+        return 2
+    try:
+        fd = os.open(output_path,
+                     os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)  # also tightens pre-existing files
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump({"bookmarks": bookmarks}, fh, ensure_ascii=False)
     except OSError as exc:
         print("cannot write output: " + type(exc).__name__, file=sys.stderr)

@@ -20,6 +20,10 @@ Output shape:
   {"results": [{"url": ..., "status": "new"|"exists", "matched": ...}, ...],
    "stats": {"total": n, "new": a, "exists": b}}
 
+Each result also carries through every original entry field (anchor_text,
+context, sender, ...) on top of url/status/matched, so downstream steps can
+consume the output directly without rejoining the input file.
+
 Exit codes: 0 ok, 2 input file missing/invalid, 1 unexpected error.
 Never touches the network, never writes files unless --output is given.
 """
@@ -79,20 +83,19 @@ def main() -> int:
     new = exists = 0
     for item in links:
         url = item.get("url", "") if isinstance(item, dict) else ""
+        base = item if isinstance(item, dict) else {}
         _, key, _ = normalize(url)
         if key and key in library_keys:
             matched = library_keys[key]
-            results.append({
-                "url": url,
-                "status": "exists",
-                "matched": {"link": matched.get("link"),
-                            "title": matched.get("title"),
-                            "bookmark_id": matched.get("bookmark_id")
-                            or matched.get("id")},
+            results.append({**base, "url": url, "status": "exists", "matched": {
+                "link": matched.get("link"),
+                "title": matched.get("title"),
+                "bookmark_id": matched.get("bookmark_id")
+                or matched.get("id")},
             })
             exists += 1
         else:
-            results.append({"url": url, "status": "new", "matched": None})
+            results.append({**base, "url": url, "status": "new", "matched": None})
             new += 1
 
     payload = {"results": results, "stats": {"total": len(results), "new": new, "exists": exists}}

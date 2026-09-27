@@ -6,6 +6,34 @@ All notable changes to this skill are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 格式参考 Keep a Changelog，版本号遵循语义化版本（SemVer）。
 
+## [1.2.0] - 2026-09-27
+
+### Security / 安全
+
+- Library export no longer defaults to a predictable filename in the shared temp directory (readable by other local users on multi-user systems, and overwritable via a pre-planted symlink); it now writes to `~/.config/newsletter-link-harvester/library.json` with 0600 file and 0700 directory permissions.
+  库导出默认输出不再使用共享临时目录里的可预测文件名（多用户系统上其他本地用户可读、且可被预置符号链接覆盖）；改为写入 `~/.config/newsletter-link-harvester/library.json`，文件权限 0600、目录权限 0700。
+- Jev pre-classification is now explicit opt-in per rules file (`settings.jev_enabled`, default `false`) instead of triggering on mere key presence — the step sends entry text derived from email content to the TypeSafe API, so "a key exists" and "this run may use it" are now separate decisions.
+  Jev 预分类改为按规则文件显式开启（`settings.jev_enabled`，默认 `false`），不再凭「key 存在」自动触发——该步骤会把邮件衍生的条目文本发送至 TypeSafe API，「配置了 key」与「本次运行允许使用」从此是两个独立决定。
+
+### Changed / 变更
+
+- Jev classification now reads the check_library.py output with `--only-new`: entries already in the Raindrop library are no longer wastefully classified; requests run in a small thread pool (4 workers, pacing preserved) instead of sequentially; `--max-entries` (default 100) caps the classified count so a large batch cannot run away.
+  Jev 分类改读 check_library.py 输出并加 `--only-new`：已在 Raindrop 库中的条目不再被白白分类；请求改由小型线程池并发执行（4 工作线程、保留节流）；`--max-entries`（默认 100）封顶分类数量，防止大批量失控。
+- check_library.py results now carry through every original entry field (anchor text, context, sender, ...), so downstream steps consume the output directly without rejoining the input file.
+  check_library.py 的结果条目现在原样携带全部原始字段（锚文本、语境、发件人等），下游步骤可直接消费其输出、无需回联输入文件。
+
+### Fixed / 修复
+
+- check_environment.py: the `unavailable` status branch was dead code (its trigger string never occurs), so SKILL.md routing on it could never fire — the status now derives cleanly from the MCP check result, and the docstring no longer claims an unreachable exit code 1. `unavailable` remains a session-level decision made by the live probe in SKILL.md Step 0.
+  check_environment.py：`unavailable` 状态分支为死代码（触发字符串永远不会出现），SKILL.md 对它的路由从不生效——状态现直接由 MCP 检查结果推导，文档不再声明不可达的退出码 1。`unavailable` 仍由 SKILL.md Step 0 的会话内探针判定。
+- fetch_library.py: a gateway response with an empty `content` array crashed with an uncaught IndexError, bypassing the designed retry; the content is now validated before access and malformed responses go through the normal retry path.
+  fetch_library.py：网关返回空 `content` 数组时以未捕获的 IndexError 崩溃、绕过既定重试；现在取值前校验内容，畸形响应走正常重试路径。
+
+### Notes / 说明
+
+- Version bumped 1.1.0 → 1.2.0 (MINOR: the `jev_enabled` setting and new CLI flags are backward-compatible additions; the Jev opt-in is a deliberate privacy behavior change).
+- 版本 1.1.0 → 1.2.0（MINOR：`jev_enabled` 设置与新增 CLI 参数均为向后兼容能力；Jev 改为显式开启是有意的隐私行为变更）。
+
 ## [1.1.0] - 2026-09-20
 
 ### Added / 新增

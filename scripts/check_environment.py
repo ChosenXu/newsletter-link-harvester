@@ -6,8 +6,11 @@ config locations used by different agent clients, Python version, and the
 writability of the state directory parent. Never reads credential values,
 never writes files, never touches the network.
 
-Exit codes: 0 check completed (see JSON status), 1 internal error.
-Statuses: ready | partial | needs_setup | unavailable
+Exit codes: 0 always (see the JSON status for the outcome).
+Statuses: ready | partial | needs_setup
+(unavailable is a session-level status only: the live probe described in
+SKILL.md Step 0 decides it — this script cannot detect expired
+authorization or network state).
 """
 
 import argparse
@@ -134,11 +137,9 @@ def main() -> int:
 
     checks = [check_python(), check_mcp(), check_state_dir()]
     mcp = checks[1]
-    if not mcp["ok"] and mcp["detail"].startswith("mcp.json unreadable"):
-        overall = "unavailable"
-    elif all(c["ok"] for c in checks):
+    if all(c["ok"] for c in checks):
         overall = "ready"
-    elif not mcp["gmail"]["configured"] or not mcp["raindrop"]["configured"]:
+    elif not mcp["ok"]:
         overall = "needs_setup"
     else:
         overall = "partial"
