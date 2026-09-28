@@ -69,7 +69,7 @@
 
 ## 本地运行时与状态文件
 
-- 依赖 id：python-runtime。两个脚本只用 Python 标准库，要求 Python 3.10 及以上（[官方主页](https://www.python.org)，[文档](https://docs.python.org/3/)）。验证命令：`python3 --version` 与 `python3 scripts/check_environment.py`。
+- 依赖 id：python-runtime。两个脚本只用 Python 标准库，要求 Python 3.10 及以上（[官方主页](https://www.python.org)，[文档](https://docs.python.org/3/)）。验证命令：`python3 --version` 与 `python3 scripts/check_environment.py`。Windows 注意：若 `python3` 命令不存在，用 `python` 或 `py` 代替（SKILL.md 中的命令同理）。
 - 跨期去重状态文件位于 `~/.config/newsletter-link-harvester/state.json`，记录已处理邮件的 ID、日期与发件人，不含任何凭据；`scripts/prune_state.py` 会自动裁剪超过 180 天或超出 500 条上限的旧条目（被裁剪条目的重复风险由库内比对兜底）。目录不可写时 skill 会降级运行并在报告中标注。
 
 ## TypeSafe Jev 预分类（可选增强）

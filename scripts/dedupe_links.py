@@ -6,9 +6,12 @@ Input JSON shape:
               "email_date": "...", "anchor_text": "...", "email_id": "..."}]}
 
 Processing:
-  1. keep only http/https links (others reported as removed, reason non_web)
+  1. keep only http/https links with a host — uppercase schemes are
+     accepted; others are reported as removed, reason non_web
   2. lowercase scheme and host, drop default ports, drop userinfo and fragment
-  3. drop tracking query params (utm_* prefix plus a fixed list)
+  3. drop tracking query params (utm_* prefix plus a fixed list, and
+     host-specific params such as "si" which is only stripped on
+     open.spotify.com)
   4. strip trailing slash on non-root paths
   5. de-duplicate inside the batch; key ignores the leading www. and sorts
      remaining query params; the first occurrence wins
@@ -29,18 +32,22 @@ import sys
 
 TRACKING_EXACT = {
     "fbclid", "gclid", "dclid", "msclkid", "mc_cid", "mc_eid", "igshid",
-    "si", "ref_src", "ref_url", "_hsenc", "_hsmi", "vero_id", "wickedid",
+    "ref_src", "ref_url", "_hsenc", "_hsmi", "vero_id", "wickedid",
     "ttclid", "li_fat_id", "twclid", "s_kwcid", "yclid",
 }
+# params stripped only on the hosts that actually use them for tracking
+TRACKING_HOST = {"si": ("open.spotify.com",)}
 
 
 def split_url(url: str):
-    """Return (scheme, host, path, query_pairs) or None when not http/https."""
+    """Return (scheme, host, path, query_pairs) or None when not a usable
+    http/https URL (also covers uppercase schemes and empty hosts)."""
     rest = url.strip()
-    for scheme in ("https://", "http://"):
-        if rest.startswith(scheme):
-            used = scheme[:-3]
-            break
+    head = rest[:8].lower()
+    if head.startswith("https://"):
+        used = "https"
+    elif head.startswith("http://"):
+        used = "http"
     else:
         return None
     rest = rest[len(used) + 3:]
@@ -57,6 +64,8 @@ def split_url(url: str):
         hostname, _, port = host.partition(":")
         if (used == "http" and port == "80") or (used == "https" and port == "443"):
             host = hostname
+    if not host:
+        return None  # no host (e.g. "https:///path") — unusable as a bookmark
     pairs = []
     if query:
         for chunk in query.split("&"):
@@ -72,9 +81,11 @@ def join_url(scheme: str, host: str, path: str, pairs) -> str:
     return scheme + "://" + host + path + ("?" + query if query else "")
 
 
-def is_tracking(key: str) -> bool:
+def is_tracking(key: str, host: str = "") -> bool:
     lowered = key.lower()
-    return lowered in TRACKING_EXACT or lowered.startswith("utm_")
+    if lowered in TRACKING_EXACT or lowered.startswith("utm_"):
+        return True
+    return lowered in TRACKING_HOST and host in TRACKING_HOST[lowered]
 
 
 def normalize(url: str):
@@ -83,11 +94,11 @@ def normalize(url: str):
     if parts is None:
         return None, None, "non_web"
     scheme, host, path, pairs = parts
-    kept_pairs = [(k, v) for k, v in pairs if not is_tracking(k)]
+    key_host = host[4:] if host.startswith("www.") else host
+    kept_pairs = [(k, v) for k, v in pairs if not is_tracking(k, key_host)]
     if len(path) > 1 and path.endswith("/"):
         path = path.rstrip("/")
     cleaned = join_url(scheme, host, path, kept_pairs)
-    key_host = host[4:] if host.startswith("www.") else host
     key = join_url(scheme, key_host, path, sorted((k.lower(), v) for k, v in kept_pairs))
     return cleaned, key, None
 

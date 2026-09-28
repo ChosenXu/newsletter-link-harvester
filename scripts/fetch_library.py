@@ -34,6 +34,8 @@ Options:
                  written 0600, so other local users cannot read the library)
   --timeout SECS  per-request timeout (default 30)
   --limit         bookmarks per page, 1-150 (default 150)
+  --max-pages N   safety cap on pagination requests (default 200); reaching
+                 it stops paging with an explicit truncation warning
 
 Exit codes: 0 ok; 2 config/usage problem (token not found, bad JSON in the
 config, unusable output path or directory); 1 network/HTTP/tool failure —
@@ -160,9 +162,19 @@ def call_gateway(token: str, arguments: dict, timeout: int) -> dict:
             if not isinstance(text, str) or not text:
                 raise RuntimeError("gateway response missing content text")
             return json.loads(text)
-        except (urllib.error.URLError, urllib.error.HTTPError,
-                ValueError, OSError, RuntimeError, KeyError,
-                json.JSONDecodeError) as exc:
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if attempt == 1:
+                delay = 1.5
+                retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                if retry_after:
+                    try:
+                        delay = max(1.5, min(float(retry_after), 30.0))
+                    except ValueError:
+                        pass
+                time.sleep(delay)
+        except (urllib.error.URLError, ValueError, OSError, RuntimeError,
+                KeyError, json.JSONDecodeError) as exc:
             last_error = exc
             if attempt == 1:
                 time.sleep(1.5)
@@ -176,11 +188,16 @@ def main() -> int:
     parser.add_argument("--output", help="destination JSON file")
     parser.add_argument("--timeout", type=int, default=30, help="per-request timeout seconds")
     parser.add_argument("--limit", type=int, default=150, help="bookmarks per page (1-150)")
+    parser.add_argument("--max-pages", type=int, default=200,
+                        help="safety cap on pagination requests (default 200)")
     parser.add_argument("--token-file", help="file whose first line is the Raindrop token")
     args = parser.parse_args()
 
     if not 1 <= args.limit <= 150:
         print("limit must be 1-150", file=sys.stderr)
+        return 2
+    if args.max_pages < 1:
+        print("max-pages must be >= 1", file=sys.stderr)
         return 2
     output_path = args.output or DEFAULT_OUTPUT
 
@@ -194,6 +211,7 @@ def main() -> int:
     total = None
     page = 1
     requests_used = 0
+    hit_page_cap = False
     while True:
         try:
             inner = call_gateway(
@@ -216,6 +234,9 @@ def main() -> int:
         total = inner.get("total") if isinstance(inner.get("total"), int) else total
         if not items or (total is not None and len(bookmarks) >= total):
             break
+        if requests_used >= args.max_pages:
+            hit_page_cap = True
+            break  # safety cap: stop paging, warn below
         page += 1
 
     out_dir = os.path.dirname(output_path) or "."
@@ -241,6 +262,11 @@ def main() -> int:
         + " gateway request(s) -> " + output_path
         + " (payloads kept out of context)"
     )
+    if hit_page_cap:
+        print("WARNING: stopped at the --max-pages cap (" + str(args.max_pages)
+              + " requests); the export may be incomplete — rerun with a "
+                "higher --max-pages if the library is really this large",
+              file=sys.stderr)
     return 0
 
 

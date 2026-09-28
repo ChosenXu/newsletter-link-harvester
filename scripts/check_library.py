@@ -47,8 +47,10 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        links_data = json.load(open(args.links, encoding="utf-8"))
-        library_data = json.load(open(args.library, encoding="utf-8"))
+        with open(args.links, encoding="utf-8") as fh:
+            links_data = json.load(fh)
+        with open(args.library, encoding="utf-8") as fh:
+            library_data = json.load(fh)
     except OSError as exc:
         print("cannot read input: " + type(exc).__name__, file=sys.stderr)
         return 2

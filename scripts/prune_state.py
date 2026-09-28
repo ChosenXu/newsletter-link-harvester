@@ -18,8 +18,8 @@ Pruning rules:
   - any other top-level keys in the state file are preserved
 
 Exit codes: 0 ok (see printed stats), 2 state file missing/invalid,
-1 unexpected error. No network, no subprocess, writes only the state file
-unless --dry-run.
+1 unexpected error. No network, no subprocess, writes the state file
+atomically (temp file + rename) unless --dry-run.
 """
 
 import argparse
@@ -80,7 +80,13 @@ def main() -> int:
         print("state file is not valid JSON", file=sys.stderr)
         return 2
 
+    if not isinstance(data, dict):
+        print("state file must contain a JSON object", file=sys.stderr)
+        return 2
     raw = data.get("processed_email_ids", [])
+    if not isinstance(raw, list):
+        print("processed_email_ids must be a list", file=sys.stderr)
+        return 2
     entries = load_entries(raw)
     before = len(entries)
 
@@ -115,9 +121,11 @@ def main() -> int:
         return 0
 
     data["processed_email_ids"] = kept
+    tmp_path = args.state + ".tmp"
     try:
-        with open(args.state, "w", encoding="utf-8") as handle:
+        with open(tmp_path, "w", encoding="utf-8") as handle:
             handle.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+        os.replace(tmp_path, args.state)  # atomic on the same filesystem
     except OSError as exc:
         print("cannot write state file: " + type(exc).__name__, file=sys.stderr)
         return 1

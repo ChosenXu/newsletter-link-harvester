@@ -42,10 +42,14 @@ def _server_kind(entry: dict) -> str:
 
 
 def _match_server(servers: dict, hints) -> dict:
+    # only the server name and URL field count — a "gmail" substring buried
+    # anywhere else in an unrelated entry must not read as configured
     for name, entry in servers.items():
+        if not isinstance(entry, dict):
+            continue
         lowered = name.lower()
-        raw = json.dumps(entry, ensure_ascii=False).lower()
-        if any(h in lowered or h in raw for h in hints):
+        url = str(entry.get("url") or "").lower()
+        if any(h in lowered or h in url for h in hints):
             return {"name": name, "kind": _server_kind(entry), "configured": True}
     return {"name": None, "kind": None, "configured": False}
 

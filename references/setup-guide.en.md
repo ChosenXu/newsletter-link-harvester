@@ -69,7 +69,7 @@ Dependency id reference: gmail-mcp (Gmail access, Options A/B in this file), rai
 
 ## Local Runtime and State File
 
-- Dependency id: python-runtime. Both scripts use only the Python standard library and require Python 3.10 or newer ([official home](https://www.python.org), [docs](https://docs.python.org/3/)). Verify with: `python3 --version` and `python3 scripts/check_environment.py`.
+- Dependency id: python-runtime. Both scripts use only the Python standard library and require Python 3.10 or newer ([official home](https://www.python.org), [docs](https://docs.python.org/3/)). Verify with: `python3 --version` and `python3 scripts/check_environment.py`. On Windows, if `python3` is not found, use `python` or `py` instead (same for every command in SKILL.md).
 - The cross-run dedup state file lives at `~/.config/newsletter-link-harvester/state.json`, recording processed email IDs, dates and senders, with no credentials; `scripts/prune_state.py` automatically prunes entries older than 180 days or beyond the 500-entry cap (duplicate risk for pruned entries is backstopped by the library lookup). If the directory is not writable, the skill degrades gracefully and flags it in the report.
 
 ## TypeSafe Jev pre-classification (optional enhancement)

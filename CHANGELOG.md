@@ -6,6 +6,36 @@ All notable changes to this skill are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 格式参考 Keep a Changelog，版本号遵循语义化版本（SemVer）。
 
+## [1.3.0] - 2026-09-28
+
+### Added / 新增
+
+- fetch_library.py: `--max-pages` safety cap (default 200) stops runaway pagination with an explicit truncation warning; HTTP 429 responses now honor the server's `Retry-After` header (clamped to 1.5-30s) instead of a fixed 1.5s sleep.
+  fetch_library.py：新增 `--max-pages` 保险丝（默认 200）终止失控分页并输出明确的截断警告；HTTP 429 响应现遵循服务端 `Retry-After` 头（钳制在 1.5-30 秒），不再固定睡 1.5 秒。
+
+### Changed / 变更
+
+- dedupe_links.py: URL normalization accepts uppercase schemes (`HTTPS://`) instead of discarding the link as non-web; rejects URLs without a host; the tracking param `si` is now stripped only on `open.spotify.com` (it is a legitimate parameter on other hosts and was silently deforming those URLs).
+  dedupe_links.py：URL 归一化接受大写 scheme（`HTTPS://`）而非当作非网页链接丢弃；拒绝无 host 的 URL；跟踪参数 `si` 改为仅在 `open.spotify.com` 上剥离（它在其他站点是合法参数，此前会被误删导致网址变形）。
+- check_environment.py: server matching is now restricted to the entry name and URL field — a "gmail"/"raindrop" substring buried elsewhere in an unrelated server entry no longer reads as configured.
+  check_environment.py：服务器匹配收窄到条目名称与 URL 字段——埋在无关服务器条目其他位置的「gmail」/「raindrop」字样不再被误判为已配置。
+- Redirect resolution in SKILL.md now caps the chain at 5 hops (`curl --max-redirs 5`); longer chains count as resolution failures.
+  SKILL.md 的重定向还原加 5 跳上限（`curl --max-redirs 5`）；超长链按还原失败处理。
+
+### Fixed / 修复
+
+- prune_state.py: the state file is now written atomically (temp file + rename), so a crash mid-write can no longer leave a half-truncated JSON that breaks cross-run dedup; malformed state files (non-object root, non-list `processed_email_ids`) are rejected with exit code 2 instead of crashing or silently corrupting the state.
+  prune_state.py：状态文件改为原子写入（临时文件 + 重命名），写入中途崩溃不再留下半截 JSON 破坏跨期去重；畸形状态文件（根非对象、`processed_email_ids` 非列表）以退出码 2 拒绝，不再崩溃或静默损坏状态。
+- extract_context.py: English sentences now split on "." with decimal points (3.5) and common abbreviations (e.g., i.e., etc., U.S.) excluded; `--max-chars` is clamped to a minimum of 10 (0 or negative values previously produced a negative slice that silently skipped truncation); non-dict link entries are skipped instead of crashing; the URL-only fallback now measures the actually matched text, fixing off-by-anchor-length offsets; input files are read with context managers.
+  extract_context.py：英文句子现按「.」切分（排除小数点与常见缩写）；`--max-chars` 钳制到最小 10（此前传 0 或负数会因负切片静默跳过截断）；非字典链接条目跳过而非崩溃；URL 兜底匹配改用实际匹配文本的长度，修复锚文本长度偏差；输入文件改用上下文管理器读取。
+- check_library.py: input files are read with context managers (no leaked file handles).
+  check_library.py：输入文件改用上下文管理器读取（不再泄漏文件句柄）。
+
+### Notes / 说明
+
+- Version bumped 1.2.0 → 1.3.0 (MINOR: new `--max-pages` CLI option and behavior-preserving normalization changes).
+- 版本 1.2.0 → 1.3.0（MINOR：新增 `--max-pages` 参数，归一化改动保持行为兼容）。
+
 ## [1.2.0] - 2026-09-27
 
 ### Security / 安全

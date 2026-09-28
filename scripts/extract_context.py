@@ -24,6 +24,8 @@ Rules:
   - markdown links are consumed in order; each occurrence is used once
   - context window: the sentence around the link; falls back to the whole
     paragraph (stripped, truncated) when the sentence is too short
+  - sentence boundaries: CJK enders plus ".", where "." is ignored after
+    decimals (3.5) and common abbreviations (e.g., i.e., etc., U.S.)
   - context is plain text: images removed, [text](url) reduced to text,
     emphasis markers stripped, whitespace collapsed, truncated to max-chars
 
@@ -37,7 +39,12 @@ import re
 import sys
 
 MAX_CHARS_DEFAULT = 160
-SENTENCE_END = "。！？；!?"
+MIN_CHARS = 10
+SENTENCE_END = "。！？；!?"  # "." is handled by _ends_sentence (abbreviations, decimals)
+ABBREV_TAIL_RE = re.compile(
+    r"\b(?:e\.g|i\.e|etc|vs|U\.S|U\.K|Mr|Mrs|Ms|Dr|Jr|Sr|Prof|Fig|No)\.$",
+    re.IGNORECASE,
+)
 
 LINK_RE = re.compile(r"(!?)\[([^\]]*)\]\((https?://[^)\s]+)\)")
 IMG_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
@@ -52,12 +59,26 @@ def strip_markdown(fragment: str) -> str:
     return fragment.strip()
 
 
+def _ends_sentence(paragraph: str, idx: int) -> bool:
+    """True when paragraph[idx] can close a sentence. "." counts unless it is
+    a decimal point (digit.digit) or the tail of a common abbreviation."""
+    ch = paragraph[idx]
+    if ch in SENTENCE_END:
+        return True
+    if ch != ".":
+        return False
+    if (idx > 0 and paragraph[idx - 1].isdigit()
+            and idx + 1 < len(paragraph) and paragraph[idx + 1].isdigit()):
+        return False  # decimal point, e.g. 3.5
+    return not ABBREV_TAIL_RE.search(paragraph[max(0, idx - 6):idx + 1])
+
+
 def sentence_around(paragraph: str, start: int, end: int) -> str:
     left = start
-    while left > 0 and paragraph[left - 1] not in SENTENCE_END:
+    while left > 0 and not _ends_sentence(paragraph, left - 1):
         left -= 1
     right = end
-    while right < len(paragraph) and paragraph[right] not in SENTENCE_END:
+    while right < len(paragraph) and not _ends_sentence(paragraph, right):
         right += 1
     return paragraph[left:right]
 
@@ -67,12 +88,14 @@ def find_context(md: str, anchor: str, url: str, max_chars: int) -> str:
     pos = md.find(pattern)
     if pos == -1:
         # anchor might differ slightly; fall back to URL-only match
-        pos = md.find("(" + url + ")")
+        fallback = md.find("(" + url + ")")
+        if fallback == -1:
+            return ""
+        pos = md.rfind("[", 0, fallback)
         if pos == -1:
             return ""
-        pos = md.rfind("[", 0, pos)
-        if pos == -1:
-            return ""
+        # measure the actually matched text (its anchor may differ from input)
+        pattern = md[pos:fallback + len(url) + 2]
     # locate containing paragraph (blank-line separated)
     para_start = md.rfind("\n\n", 0, pos)
     para_start = 0 if para_start == -1 else para_start + 2
@@ -165,10 +188,13 @@ def main() -> int:
         help="body link format: markdown [anchor](url) or plain text [ url ]"
     )
     args = parser.parse_args()
+    max_chars = max(MIN_CHARS, args.max_chars)
 
     try:
-        md = open(args.email, encoding="utf-8").read()
-        data = json.load(open(args.links, encoding="utf-8"))
+        with open(args.email, encoding="utf-8") as fh:
+            md = fh.read()
+        with open(args.links, encoding="utf-8") as fh:
+            data = json.load(fh)
     except OSError as exc:
         print("cannot read input: " + type(exc).__name__, file=sys.stderr)
         return 2
@@ -183,13 +209,16 @@ def main() -> int:
 
     with_context, without = 0, 0
     for item in links:
+        if not isinstance(item, dict):
+            without += 1
+            continue
         if args.format == "text":
             key = (item.get("source_url") or item.get("url") or "").strip()
-            context = find_context_text(md, key, args.max_chars)
+            context = find_context_text(md, key, max_chars)
         else:
             url = item.get("url", "")
             anchor = (item.get("anchor_text") or "").strip()
-            context = find_context(md, anchor, url, args.max_chars)
+            context = find_context(md, anchor, url, max_chars)
         item["context"] = context
         if context:
             with_context += 1
