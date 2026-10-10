@@ -6,6 +6,22 @@ All notable changes to this skill are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 格式参考 Keep a Changelog，版本号遵循语义化版本（SemVer）。
 
+## [1.5.0] - 2026-10-10
+
+### Added / 新增
+
+- `scripts/filter_processed.py`: the cross-run dedup layer is now zero-context — the script splits this run's email IDs against the state file and outputs `new` / `processed`, so the state file (up to 500 entries) never enters the model conversation. Completes the zero-context design alongside the library-export channel. SKILL.md Step 4.2 routing updated accordingly. Regression-tested.
+  `scripts/filter_processed.py`：跨期去重层零上下文化——脚本把本次收集的邮件 ID 与状态文件比对，输出 `new` / `processed` 两组，状态文件（最多 500 条）不再进入模型对话。与库导出通道共同补全零上下文设计。SKILL.md 第 4.2 步路由已同步更新。已补回归测试。
+- Regression suites for `check_library.py` and `classify_entries.py` (offline, stdlib only): normalization-based matching, original-field carry-through, input-shape tolerance, `--only-new` filtering, cap behavior, key-resolution precedence, and the soft-skip exit codes. Every script in `scripts/` now has tests (52 cases total).
+  `check_library.py` 与 `classify_entries.py` 补齐回归测试（离线、仅标准库）：归一化匹配、原始字段透传、输入形态兼容、`--only-new` 筛选、上限行为、key 解析优先级与软跳过退出码。`scripts/` 下所有脚本至此全部有测试（合计 52 例）。
+- `references/jev.md`: Jev pre-classification details (trigger conditions, thresholds, exit codes, calibration) moved out of SKILL.md Step 5.6, which now keeps only the trigger conditions, the invocation, and a pointer. The frontmatter description was also compressed (~120 → ~95 words of always-loaded context).
+  `references/jev.md`：Jev 预分类细节（触发条件、阈值、退出码、校准）从 SKILL.md 第 5.6 步移出，主文件只留触发条件、调用方式与指引；frontmatter description 同步压缩（常驻上下文约 120 词 → 约 95 词）。
+
+### Notes / 说明
+
+- Version bumped 1.4.0 → 1.5.0 (MINOR: `scripts/filter_processed.py` is a new file users may call; SKILL.md routing updated accordingly).
+- 版本 1.4.0 → 1.5.0（MINOR：新增 `scripts/filter_processed.py` 供调用，SKILL.md 流程相应更新）。
+
 ## [1.4.0] - 2026-10-10
 
 ### Added / 新增

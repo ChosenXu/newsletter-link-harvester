@@ -85,12 +85,14 @@ SKILL.md                        # 技能定义与工作流
 assets/newsletter-rules.json    # 发件人白名单与子收藏夹映射（需自行填写）
 references/setup-guide.md       # Gmail + Raindrop 配置指南（中文）
 references/setup-guide.en.md    # 配置指南（英文）
+references/jev.md               # Jev 预分类细节（可选增强）
 scripts/check_environment.py    # 只读就绪检查（多配置扫描）
 scripts/dedupe_links.py         # 归一化 + 批量内去重
 scripts/extract_context.py      # 逐链接编辑语境（Markdown 与纯文本双模式）
 scripts/classify_entries.py     # 可选 Jev 预分类（软依赖）
 scripts/fetch_library.py        # 零上下文全库导出（令牌解析链）
 scripts/check_library.py        # 离线库内比对（接受 kept/links 两种输入）
+scripts/filter_processed.py     # 跨期去重拆分（状态文件不进上下文）
 scripts/prune_state.py          # 跨期状态治理（按龄/上限/干跑）
 ```
 

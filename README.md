@@ -85,12 +85,14 @@ SKILL.md                        # skill definition & workflow
 assets/newsletter-rules.json    # sender whitelist & sub-collection mapping (fill this in)
 references/setup-guide.md       # Gmail + Raindrop setup, 中文
 references/setup-guide.en.md    # setup guide, English
+references/jev.md               # Jev pre-classification details (optional)
 scripts/check_environment.py    # read-only readiness check (multi-config scan)
 scripts/dedupe_links.py         # normalization + in-batch dedup
 scripts/extract_context.py      # per-link editorial context (Markdown & plain-text modes)
 scripts/classify_entries.py     # optional Jev pre-classification (soft dependency)
 scripts/fetch_library.py        # zero-context full-library export (token chain)
 scripts/check_library.py        # offline library compare (kept/links input)
+scripts/filter_processed.py     # cross-run dedup split (zero-context state read)
 scripts/prune_state.py          # cross-run state housekeeping (age/cap/dry-run)
 ```
 
