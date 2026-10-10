@@ -54,7 +54,7 @@ Or copy the folder manually into any of the directories above.
 
 ## Configuration
 
-Fill `assets/newsletter-rules.json` (a template with `example@newsletter.com` is included):
+Fill the filter rules (a template with `example@newsletter.com` is included). The skill reads `~/.config/newsletter-link-harvester/rules.json` first when it exists — a personal copy outside the repository that skill updates never touch — and falls back to `assets/newsletter-rules.json`:
 
 ```json
 {

@@ -41,16 +41,3 @@ jobs:
           else
             echo "no tests/ directory — skipped"
           fi
-
-      - name: Script selftests
-        run: |
-          set -e
-          found=0
-          for f in scripts/*.py; do
-            [ -e "$f" ] || continue
-            if grep -q -- '--selftest' "$f"; then
-              found=1
-              python3 "$f" --selftest
-            fi
-          done
-          [ "$found" -eq 1 ] || echo "no --selftest scripts — skipped"

@@ -6,6 +6,35 @@ All notable changes to this skill are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 格式参考 Keep a Changelog，版本号遵循语义化版本（SemVer）。
 
+## [1.4.0] - 2026-10-10
+
+### Added / 新增
+
+- Personal rules file support: the filter rules are now read from `~/.config/newsletter-link-harvester/rules.json` when it exists (a personal copy outside the repository — updating the skill never touches your config), falling back to `assets/newsletter-rules.json` in the skill directory.
+  个人规则文件支持：存在 `~/.config/newsletter-link-harvester/rules.json` 时优先读取（仓库之外的个人副本——更新技能不会再动到配置），不存在时回退读取 skill 目录内的 `assets/newsletter-rules.json`。
+
+### Security / 安全
+
+- The shipped `assets/newsletter-rules.json` was a real personal configuration (sender address and collection mapping) wearing a template's name; it is the template example again, so fresh clones start unconfigured and the "refuse to run on template" guard works as documented.
+  随仓库发布的 `assets/newsletter-rules.json` 此前是一份顶着模板名义的真实个人配置（含发件人地址与收藏夹映射）；现已恢复为模板示例，新克隆的仓库回到「未配置」状态，SKILL.md 的「检测到模板即拒绝运行」保护按文档生效。
+
+### Fixed / 修复
+
+- fetch_library.py: an MCP-config entry named exactly `raindrop` could be shadowed by an earlier entry whose name merely contains "raindrop" (e.g. an unrelated `raindrop-old`), producing a false "no token found"; the exact name now wins, with substring matching kept only as a fallback. Regression-tested.
+  fetch_library.py：配置里精确名为 `raindrop` 的条目可能被排在前面、名字里恰好含 "raindrop" 的无关条目（如 `raindrop-old`）遮蔽，导致误报「找不到令牌」；现在精确名优先，子串匹配仅作回退。已补回归测试。
+- fetch_library.py: a gateway page that parses to valid JSON but is not an object (array/string/null) crashed with an uncaught AttributeError, bypassing the designed retry; such responses now raise a tool error and flow through the normal retry path. Regression-tested.
+  fetch_library.py：网关返回页若能解析为合法 JSON 但不是对象（数组/字符串/null），会以未捕获的 AttributeError 崩溃、绕过既定重试；现在此类响应按工具错误处理，走正常重试路径。已补回归测试。
+
+### Changed / 变更
+
+- CI: removed the "Script selftests" step — no script in this repository ships a `--selftest` mode, so the step never ran anything.
+  CI：移除「Script selftests」步骤——本仓没有任何脚本提供 `--selftest` 模式，该步骤从未执行过任何东西。
+
+### Notes / 说明
+
+- Version bumped 1.3.0 → 1.4.0 (MINOR: the personal rules path is a backward-compatible capability addition, following the same versioning precedent as 1.2.0; the remaining items are fixes and hygiene).
+- 版本 1.3.0 → 1.4.0（MINOR：个人规则路径是向后兼容的能力新增，沿用 1.2.0 的同类定版先例；其余条目为修复与卫生项）。
+
 ## [1.3.0] - 2026-09-28
 
 ### Added / 新增

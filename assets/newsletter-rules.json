@@ -1,8 +1,8 @@
 {
-  "senders": ["dingyi@quail-mail.com"],
+  "senders": ["example@newsletter.com"],
   "keywords": [],
   "sender_collection_map": {
-    "dingyi@quail-mail.com": "DEX 周刊"
+    "example@newsletter.com": "Example Newsletter"
   },
   "settings": {
     "parent_collection": "Newsletter",

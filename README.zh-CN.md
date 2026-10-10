@@ -54,7 +54,7 @@ git clone https://github.com/ChosenXu/newsletter-link-harvester.git \
 
 ## 配置
 
-填写 `assets/newsletter-rules.json`（已内置 `example@newsletter.com` 模板）：
+填写筛选规则（已内置 `example@newsletter.com` 模板）。规则文件优先读取 `~/.config/newsletter-link-harvester/rules.json`（仓库之外的个人副本，更新技能不会动到它），不存在时回退读取 `assets/newsletter-rules.json`：
 
 ```json
 {

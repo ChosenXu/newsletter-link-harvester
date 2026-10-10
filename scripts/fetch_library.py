@@ -73,18 +73,37 @@ class FetchError(Exception):
     """Network/HTTP/tool failure after retry -> exit code 1."""
 
 
+def parse_page(text: str) -> dict:
+    """Parse one gateway page payload. A valid-JSON-but-not-object response
+    is a tool error (RuntimeError), so it flows through the retry path
+    instead of crashing with an uncaught AttributeError at the caller."""
+    payload = json.loads(text)
+    if not isinstance(payload, dict):
+        raise RuntimeError("gateway response is not a JSON object")
+    return payload
+
+
 def _token_from_config_object(config: object) -> str:
-    """Find a raindrop server entry with a Bearer header in an MCP config."""
+    """Find a raindrop server entry with a Bearer header in an MCP config.
+
+    An entry named exactly "raindrop" wins; only when no exact-name entry
+    exists does the first substring-named entry count — a non-raindrop
+    entry merely containing "raindrop" in its name must not shadow the
+    exact-named one.
+    """
     servers = {}
     if isinstance(config, dict):
         servers = config.get("mcpServers") or config.get("servers") or {}
     if not isinstance(servers, dict):
         return ""
-    raindrop = servers.get("raindrop")
-    for name, entry in servers.items():
-        if "raindrop" in name.lower():
-            raindrop = entry
-            break
+    if isinstance(servers.get("raindrop"), dict):
+        raindrop = servers["raindrop"]
+    else:
+        raindrop = None
+        for name, entry in servers.items():
+            if isinstance(entry, dict) and "raindrop" in name.lower():
+                raindrop = entry
+                break
     if not isinstance(raindrop, dict):
         return ""
     auth = (raindrop.get("headers") or {}).get("Authorization", "")
@@ -161,7 +180,7 @@ def call_gateway(token: str, arguments: dict, timeout: int) -> dict:
                     if content and isinstance(content[0], dict) else None)
             if not isinstance(text, str) or not text:
                 raise RuntimeError("gateway response missing content text")
-            return json.loads(text)
+            return parse_page(text)
         except urllib.error.HTTPError as exc:
             last_error = exc
             if attempt == 1:
