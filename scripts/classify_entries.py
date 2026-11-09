@@ -42,8 +42,9 @@ Output shape: same entries; each gains "jev": {"is_promotional": float|null,
 "meaningful_title": float|null} plus "stats" describing coverage.
 
 Exit codes: 0 ok (partial coverage allowed and reported); 2 usage error;
-3 key not configured (expected soft skip — callers treat this as "enhancement
-off"); 1 every request failed (network/service down).
+3 enhancement off — either settings.jev_enabled is not true in the rules file,
+or no TypeSafe key is configured (expected soft skip; callers treat this as
+"enhancement off"); 1 every request failed (network/service down).
 """
 
 import argparse
@@ -60,6 +61,13 @@ KEY_FILE = os.path.expanduser("~/.typesafe-api-key")
 REQUEST_TIMEOUT = 30
 MAX_WORKERS = 4
 DEFAULT_MAX_ENTRIES = 100
+# The opt-in is re-checked here, in code, not only in SKILL.md prose: a key
+# that merely exists must never be enough to send email-derived text out.
+RULES_PERSONAL = os.path.expanduser("~/.config/newsletter-link-harvester/rules.json")
+RULES_DEFAULT = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "assets", "newsletter-rules.json",
+)
 
 QUESTIONS = {
     "is_promotional": {
@@ -92,6 +100,29 @@ def load_key(key_file: str = "") -> str:
     if not key:
         raise NotConfigured("key file is empty: " + path)
     return key
+
+
+def rules_enabled(rules_path: str = "") -> bool:
+    """True only when settings.jev_enabled is exactly true in the effective
+    rules file (personal path first, then the bundled template).
+
+    This is the code-level half of the opt-in: a configured API key alone must
+    never be enough to send email-derived text to TypeSafe. Unreadable or
+    malformed rules count as disabled (safe default).
+    """
+    if rules_path:
+        path = os.path.expanduser(rules_path)
+    elif os.path.isfile(RULES_PERSONAL):
+        path = RULES_PERSONAL
+    else:
+        path = RULES_DEFAULT
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    settings = data.get("settings") if isinstance(data, dict) else None
+    return isinstance(settings, dict) and settings.get("jev_enabled") is True
 
 
 def call(state: str, key: str) -> dict:
@@ -183,6 +214,11 @@ def main() -> int:
               + (" (or a results array with status fields)" if args.only_new else ""),
               file=sys.stderr)
         return 2
+
+    if not rules_enabled():
+        print("Jev pre-classification: off (settings.jev_enabled is not true "
+              "in the rules file)", file=sys.stderr)
+        return 3  # expected soft skip: opt-in not granted, flow unchanged
 
     try:
         key = load_key(args.key_file)

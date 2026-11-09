@@ -38,6 +38,11 @@ class MatchServerTests(unittest.TestCase):
         }
         self.assertFalse(ce._match_server(servers, ["gmail"])["configured"])
 
+    def test_hint_in_url_path_not_host_ignored(self):
+        # a "gmail" segment in the URL path (not the host) must not match
+        servers = {"bridge": {"url": "https://example.com/gmail/proxy"}}
+        self.assertFalse(ce._match_server(servers, ["gmail"])["configured"])
+
     def test_non_dict_entries_skipped(self):
         servers = {"broken": "gmail-mcp string entry"}
         self.assertFalse(ce._match_server(servers, ["gmail"])["configured"])

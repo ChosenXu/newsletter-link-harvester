@@ -37,12 +37,17 @@ def load_entries(raw):
     entries = []
     for item in raw:
         if isinstance(item, dict):
+            raw_id = item.get("id")
+            if raw_id is None:
+                continue  # a null id is not a real email; drop the phantom entry
             entries.append({
-                "id": str(item.get("id", "")),
+                "id": str(raw_id),
                 "processed_at": str(item.get("processed_at", "")),
                 "sender": str(item.get("sender", "")),
             })
         else:
+            if item is None:
+                continue  # null entries carry no id
             entries.append({"id": str(item), "processed_at": "", "sender": ""})
     return [e for e in entries if e["id"]]
 

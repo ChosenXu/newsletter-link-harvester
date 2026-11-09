@@ -66,6 +66,20 @@ class PruneStateTests(unittest.TestCase):
         self.assertEqual(sorted(e["id"] for e in data["processed_email_ids"]), ["a", "b"])
         self.assertEqual(data["other_key"], 1)  # unrelated keys preserved
 
+    def test_null_id_skipped(self):
+        # a JSON null id must not turn into a phantom "None" entry that survives
+        self.write_state({"processed_email_ids": [
+            {"id": None, "processed_at": "2026-10-01"},
+            {"id": "keep", "processed_at": "2026-10-02"},
+        ]})
+        result = run_prune(self.state)
+        self.assertEqual(result.returncode, 0)
+        with open(self.state, encoding="utf-8") as fh:
+            data = json.load(fh)
+        ids = [e["id"] for e in data["processed_email_ids"]]
+        self.assertEqual(ids, ["keep"])
+        self.assertNotIn("None", ids)
+
     def test_duplicates_collapse_to_last(self):
         self.write_state({"processed_email_ids": [
             {"id": "x", "processed_at": "2026-10-01", "sender": "old"},

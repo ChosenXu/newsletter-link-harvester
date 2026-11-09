@@ -67,7 +67,8 @@ Fill the filter rules (a template with `example@newsletter.com` is included). Th
     "parent_collection": "Newsletter",
     "days_back": 7,
     "max_emails": 20,
-    "trust_mode": false
+    "trust_mode": false,
+    "jev_enabled": false
   }
 }
 ```

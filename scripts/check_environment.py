@@ -18,6 +18,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 MCP_CONFIG_CANDIDATES = (
     "~/.workbuddy/mcp.json",
@@ -41,15 +42,24 @@ def _server_kind(entry: dict) -> str:
     return "unknown"
 
 
+def _url_host(url: str) -> str:
+    """Lower-cased hostname of an MCP server URL, or "" when unparseable."""
+    try:
+        return (urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
 def _match_server(servers: dict, hints) -> dict:
-    # only the server name and URL field count — a "gmail" substring buried
-    # anywhere else in an unrelated entry must not read as configured
+    # Only the server name and the URL *host* count — neither a "gmail"
+    # substring buried in another field, nor one that merely appears in a
+    # URL path or query, may read as configured.
     for name, entry in servers.items():
         if not isinstance(entry, dict):
             continue
         lowered = name.lower()
-        url = str(entry.get("url") or "").lower()
-        if any(h in lowered or h in url for h in hints):
+        host = _url_host(str(entry.get("url") or ""))
+        if any(h in lowered or h in host for h in hints):
             return {"name": name, "kind": _server_kind(entry), "configured": True}
     return {"name": None, "kind": None, "configured": False}
 

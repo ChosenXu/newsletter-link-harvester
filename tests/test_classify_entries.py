@@ -57,6 +57,13 @@ class EntryStateTests(unittest.TestCase):
 
 
 class MainTests(unittest.TestCase):
+    def setUp(self):
+        # this class exercises the enabled path; the opt-in gate itself is
+        # covered separately in DisabledGateTests / RulesEnabledTests
+        self._enabled = mock.patch.object(ce, "rules_enabled", return_value=True)
+        self._enabled.start()
+        self.addCleanup(self._enabled.stop)
+
     def test_only_new_skips_library_entries(self):
         with tempfile.TemporaryDirectory() as tmp:
             links_path = write_json(os.path.join(tmp, "in.json"), {"results": [
@@ -109,6 +116,45 @@ class MainTests(unittest.TestCase):
                     mock.patch.object(ce, "call", failing_call):
                 code, _ = run_main(["classify_entries.py", "--links", links_path])
         self.assertEqual(code, 1)
+
+
+class DisabledGateTests(unittest.TestCase):
+    def test_disabled_soft_skips_with_exit_3_even_with_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            links_path = write_json(os.path.join(tmp, "in.json"),
+                                    {"links": [{"url": "https://a.com"}]})
+            with mock.patch.object(ce, "rules_enabled", return_value=False), \
+                    mock.patch.object(ce, "load_key", return_value="k"), \
+                    mock.patch.object(ce, "call", fake_call):
+                code, _ = run_main(["classify_entries.py", "--links", links_path])
+        self.assertEqual(code, 3)
+
+
+class RulesEnabledTests(unittest.TestCase):
+    def _write_rules(self, tmp, settings):
+        path = os.path.join(tmp, "rules.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"settings": settings}, fh)
+        return path
+
+    def test_true_enables(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(
+                ce.rules_enabled(self._write_rules(tmp, {"jev_enabled": True})))
+
+    def test_false_or_missing_disables(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(
+                ce.rules_enabled(self._write_rules(tmp, {"jev_enabled": False})))
+            self.assertFalse(ce.rules_enabled(self._write_rules(tmp, {})))
+
+    def test_unreadable_or_malformed_disables(self):
+        self.assertFalse(ce.rules_enabled("/nonexistent/rules.json"))
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = os.path.join(tmp, "bad.json")
+            with open(bad, "w", encoding="utf-8") as fh:
+                fh.write("{not json")
+            self.assertFalse(ce.rules_enabled(bad))
 
 
 class LoadKeyTests(unittest.TestCase):

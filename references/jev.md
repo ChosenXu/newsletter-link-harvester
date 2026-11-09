@@ -9,7 +9,7 @@ Only when BOTH hold:
 1. `settings.jev_enabled` is `true` in the rules file (default `false`)
 2. a TypeSafe API key is configured (`TYPESAFE_API_KEY` env var, or `~/.typesafe-api-key` whose first line is the key, permission 0600)
 
-A configured key alone must never trigger the step: it sends entry text derived from email content (title, URL, introduction) to the TypeSafe API, so "a key exists" and "this run may use it" are separate decisions.
+A configured key alone must never trigger the step: it sends entry text derived from email content (title, URL, introduction) to the TypeSafe API, so "a key exists" and "this run may use it" are separate decisions. The script enforces this itself — `classify_entries.py` re-reads `settings.jev_enabled` from the rules file (personal path first, then the bundled template) and exits 3 unless it is exactly `true`, so a key that merely exists cannot cause a send.
 
 ## What it does
 
@@ -34,7 +34,7 @@ Annotations only inform the preview. The confirmation gate is never changed by t
 |---|---|---|
 | 0 | ok (partial coverage allowed and reported) | continue; report the coverage counts |
 | 2 | usage error (missing/invalid input file) | read stderr, fix the input, retry once |
-| 3 | no key configured | expected soft skip — report "Jev pre-classification: off (no key)"; behavior identical to a run without the enhancement |
+| 3 | enhancement off — `jev_enabled` not true, or no key configured | expected soft skip — report "Jev pre-classification: off"; behavior identical to a run without the enhancement |
 | 1 | every request failed (service down) | skip annotations, keep the full flow; report "unavailable (service error)" — never retry endlessly |
 
 ## Calibration

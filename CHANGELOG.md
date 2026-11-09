@@ -6,14 +6,39 @@ All notable changes to this skill are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 格式参考 Keep a Changelog，版本号遵循语义化版本（SemVer）。
 
+## [1.5.1] - 2026-11-09
+
+### Fixed / 修复
+
+- `classify_entries.py` now enforces the Jev opt-in in code: it re-reads `settings.jev_enabled` from the rules file (personal path first, then the bundled template) and exits 3 unless it is exactly `true`, so a configured API key alone can no longer send email-derived text to TypeSafe — the "key exists" vs "this run may use it" split documented since 1.2.0 was prose-only and is now enforced by the script. SKILL.md Step 5.6 and `references/jev.md` exit-code wording updated; regression-tested.
+  `classify_entries.py` 现将 Jev 开启闸口下沉到代码：启动时重读规则文件（个人路径优先，其次内置模板）里的 `settings.jev_enabled`，非 `true` 即退出码 3——仅有 key 不再能把邮件衍生文本发往 TypeSafe；自 1.2.0 起文档声明的「key 存在」与「本次允许使用」两权分立此前只靠行文约束，现由脚本强制。SKILL.md 第 5.6 步与 `references/jev.md` 的退出码说明同步更新，已补回归测试。
+- SKILL.md Step 0 now routes the `partial` environment status (some checks pass but a non-MCP one fails, e.g. Python < 3.10 or an unwritable state directory), which `check_environment.py` can emit but the flow previously left undefined.
+  SKILL.md 第 0 步新增 `partial` 环境状态的路由（部分检查通过、非 MCP 项失败，如 Python < 3.10 或状态目录不可写）——`check_environment.py` 会输出该状态，此前流程未定义如何处置。
+- `prune_state.py` no longer turns a JSON `null` id into a phantom `"None"` state entry that survived pruning; `null`/null-equivalent ids are dropped, matching how `filter_processed.py` already guards them. Regression-tested.
+  `prune_state.py` 不再把 JSON `null` id 变成能躲过裁剪的幽灵 `"None"` 条目；`null`/等价空值一律丢弃，与 `filter_processed.py` 既有的防护保持一致。已补回归测试。
+- `check_environment.py` server matching now reads only the server name and the URL **host** — a "gmail"/"raindrop" substring that merely appears in a URL path or query no longer reads as configured. Regression-tested.
+  `check_environment.py` 的服务器匹配现只读服务器名与 URL **host**——仅出现在 URL path 或 query 里的「gmail」/「raindrop」子串不再被误判为已配置。已补回归测试。
+- `fetch_library.py` resolves the Raindrop bearer token case-insensitively (header name `Authorization` and the `Bearer` scheme), so a lower-cased config no longer yields a false "no token found". Regression-tested.
+  `fetch_library.py` 解析 Raindrop Bearer 令牌时对大小写不敏感（头名 `Authorization` 与 `Bearer` scheme），小写配置不再误报「找不到令牌」。已补回归测试。
+
+### Changed / 变更
+
+- The 1.5.0 changelog test count was corrected from 52 to 57 (the count at the v1.5.0 tag); the README / README.zh-CN configuration examples now list the optional `jev_enabled` setting.
+  CHANGELOG 1.5.0 的测试数由 52 更正为 57（v1.5.0 tag 实测）；README / README.zh-CN 配置示例补列可选设置 `jev_enabled`。
+
+### Notes / 说明
+
+- Version bumped 1.5.0 → 1.5.1 (PATCH: fixes and security hardening only, no new CLI capability and no breaking change; the Jev change makes the script match the behavior documented since 1.2.0). No workflow or confirmation-gate change.
+  版本 1.5.0 → 1.5.1（PATCH：仅修复与安全加固，无新增 CLI 能力、无破坏性变更；Jev 改动让脚本与 1.2.0 起即已声明的行为一致）。工作流与确认闸门无变化。
+
 ## [1.5.0] - 2026-10-10
 
 ### Added / 新增
 
 - `scripts/filter_processed.py`: the cross-run dedup layer is now zero-context — the script splits this run's email IDs against the state file and outputs `new` / `processed`, so the state file (up to 500 entries) never enters the model conversation. Completes the zero-context design alongside the library-export channel. SKILL.md Step 4.2 routing updated accordingly. Regression-tested.
   `scripts/filter_processed.py`：跨期去重层零上下文化——脚本把本次收集的邮件 ID 与状态文件比对，输出 `new` / `processed` 两组，状态文件（最多 500 条）不再进入模型对话。与库导出通道共同补全零上下文设计。SKILL.md 第 4.2 步路由已同步更新。已补回归测试。
-- Regression suites for `check_library.py` and `classify_entries.py` (offline, stdlib only): normalization-based matching, original-field carry-through, input-shape tolerance, `--only-new` filtering, cap behavior, key-resolution precedence, and the soft-skip exit codes. Every script in `scripts/` now has tests (52 cases total).
-  `check_library.py` 与 `classify_entries.py` 补齐回归测试（离线、仅标准库）：归一化匹配、原始字段透传、输入形态兼容、`--only-new` 筛选、上限行为、key 解析优先级与软跳过退出码。`scripts/` 下所有脚本至此全部有测试（合计 52 例）。
+- Regression suites for `check_library.py` and `classify_entries.py` (offline, stdlib only): normalization-based matching, original-field carry-through, input-shape tolerance, `--only-new` filtering, cap behavior, key-resolution precedence, and the soft-skip exit codes. Every script in `scripts/` now has tests (57 cases total).
+  `check_library.py` 与 `classify_entries.py` 补齐回归测试（离线、仅标准库）：归一化匹配、原始字段透传、输入形态兼容、`--only-new` 筛选、上限行为、key 解析优先级与软跳过退出码。`scripts/` 下所有脚本至此全部有测试（合计 57 例）。
 - `references/jev.md`: Jev pre-classification details (trigger conditions, thresholds, exit codes, calibration) moved out of SKILL.md Step 5.6, which now keeps only the trigger conditions, the invocation, and a pointer. The frontmatter description was also compressed (~120 → ~95 words of always-loaded context).
   `references/jev.md`：Jev 预分类细节（触发条件、阈值、退出码、校准）从 SKILL.md 第 5.6 步移出，主文件只留触发条件、调用方式与指引；frontmatter description 同步压缩（常驻上下文约 120 词 → 约 95 词）。
 

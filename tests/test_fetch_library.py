@@ -41,6 +41,11 @@ class TokenSelectionTests(unittest.TestCase):
         }}
         self.assertEqual(fl._token_from_config_object(config), "first")
 
+    def test_lowercase_header_and_scheme_accepted(self):
+        # header name and "Bearer" scheme are matched case-insensitively
+        config = {"mcpServers": {"raindrop": {"headers": {"authorization": "bearer tok-lc"}}}}
+        self.assertEqual(fl._token_from_config_object(config), "tok-lc")
+
     def test_non_bearer_header_rejected(self):
         config = {"mcpServers": {
             "raindrop": {"headers": {"Authorization": "Basic abc"}},

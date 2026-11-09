@@ -67,7 +67,8 @@ git clone https://github.com/ChosenXu/newsletter-link-harvester.git \
     "parent_collection": "Newsletter",
     "days_back": 7,
     "max_emails": 20,
-    "trust_mode": false
+    "trust_mode": false,
+    "jev_enabled": false
   }
 }
 ```

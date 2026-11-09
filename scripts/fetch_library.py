@@ -106,8 +106,16 @@ def _token_from_config_object(config: object) -> str:
                 break
     if not isinstance(raindrop, dict):
         return ""
-    auth = (raindrop.get("headers") or {}).get("Authorization", "")
-    if isinstance(auth, str) and auth.startswith("Bearer "):
+    headers = raindrop.get("headers") or {}
+    if not isinstance(headers, dict):
+        return ""
+    auth = ""
+    for header_name, header_value in headers.items():
+        if (isinstance(header_name, str) and header_name.lower() == "authorization"
+                and isinstance(header_value, str)):
+            auth = header_value
+            break
+    if auth[:7].lower() == "bearer ":
         return auth[len("Bearer "):].strip()
     return ""
 
